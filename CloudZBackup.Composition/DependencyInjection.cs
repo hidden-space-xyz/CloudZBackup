@@ -1,6 +1,9 @@
-﻿using CloudZBackup.Application.Abstractions;
+﻿using CloudZBackup.Application.Abstractions.FileSystem;
+using CloudZBackup.Application.Abstractions.Hashing;
+using CloudZBackup.Application.Abstractions.UseCases;
 using CloudZBackup.Application.UseCases;
-using CloudZBackup.Infrastructure.Implementations;
+using CloudZBackup.Infrastructure.FileSystem;
+using CloudZBackup.Infrastructure.Hashing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CloudZBackup.Composition;

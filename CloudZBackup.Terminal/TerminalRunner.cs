@@ -1,5 +1,6 @@
-﻿using CloudZBackup.Application.Abstractions;
+﻿using CloudZBackup.Application.Abstractions.UseCases;
 using CloudZBackup.Application.UseCases.Request;
+using CloudZBackup.Application.UseCases.Result;
 using CloudZBackup.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
@@ -13,11 +14,11 @@ public sealed class TerminalRunner(IExecuteBackupUseCase useCase, ILogger<Termin
         {
             // Interactive by default; also supports optional args:
             // --source "C:\A" --dest "D:\B" --mode sync
-            var source = GetArgValue(args, "--source") ?? Prompt("Source path");
-            var dest = GetArgValue(args, "--dest") ?? Prompt("Destination path");
-            var modeText = GetArgValue(args, "--mode") ?? Prompt("Mode (sync | add | remove)");
+            string source = GetArgValue(args, "--source") ?? Prompt("Source path");
+            string dest = GetArgValue(args, "--dest") ?? Prompt("Destination path");
+            string modeText = GetArgValue(args, "--mode") ?? Prompt("Mode (sync | add | remove)");
 
-            if (!TryParseMode(modeText, out var mode))
+            if (!TryParseMode(modeText, out BackupMode mode))
             {
                 await Console.Error.WriteLineAsync(
                     "Invalid mode. Allowed values: sync, add, remove."
@@ -26,11 +27,11 @@ public sealed class TerminalRunner(IExecuteBackupUseCase useCase, ILogger<Termin
                 return;
             }
 
-            var request = new BackupRequest(source, dest, mode);
+            BackupRequest request = new(source, dest, mode);
 
             logger.LogInformation("Starting backup. Mode: {Mode}", mode);
 
-            var result = await useCase.ExecuteAsync(request, cancellationToken);
+            BackupResult result = await useCase.ExecuteAsync(request, cancellationToken);
 
             await Console.Out.WriteLineAsync();
             await Console.Out.WriteLineAsync("Backup completed successfully.");
@@ -61,7 +62,7 @@ public sealed class TerminalRunner(IExecuteBackupUseCase useCase, ILogger<Termin
 
     private static string? GetArgValue(string[] args, string key)
     {
-        for (var i = 0; i < args.Length - 1; i++)
+        for (int i = 0; i < args.Length - 1; i++)
         {
             if (string.Equals(args[i], key, StringComparison.OrdinalIgnoreCase))
                 return args[i + 1];

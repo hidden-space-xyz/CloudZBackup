@@ -11,7 +11,5 @@
   <ItemGroup>
     <ProjectReference Include="..\CloudZBackup.Application\CloudZBackup.Application.csproj" />
     <ProjectReference Include="..\CloudZBackup.Composition\CloudZBackup.Composition.csproj" />
-    <ProjectReference Include="..\CloudZBackup.Domain\CloudZBackup.Domain.csproj" />
-    <ProjectReference Include="..\CloudZBackup.Infrastructure\CloudZBackup.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

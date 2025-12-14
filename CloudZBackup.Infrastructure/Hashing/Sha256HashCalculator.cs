@@ -1,11 +1,11 @@
 ﻿using System.Security.Cryptography;
-using CloudZBackup.Application.Abstractions;
+using CloudZBackup.Application.Abstractions.Hashing;
 
-namespace CloudZBackup.Infrastructure.Implementations;
+namespace CloudZBackup.Infrastructure.Hashing;
 
 public sealed class Sha256HashCalculator : IHashCalculator
 {
-    public async Task<string> ComputeSha256HexAsync(
+    public async Task<byte[]> ComputeSha256Async(
         string filePath,
         CancellationToken cancellationToken
     )
@@ -20,8 +20,7 @@ public sealed class Sha256HashCalculator : IHashCalculator
         );
 
         using var sha = SHA256.Create();
-        var hash = await sha.ComputeHashAsync(stream, cancellationToken);
 
-        return Convert.ToHexString(hash); // Uppercase hex, stable format.
+        return await sha.ComputeHashAsync(stream, cancellationToken);
     }
 }

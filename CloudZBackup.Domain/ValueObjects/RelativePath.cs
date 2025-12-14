@@ -15,7 +15,7 @@ public readonly record struct RelativePath
             return;
         }
 
-        var normalized = value.Replace('\\', '/').TrimStart('/');
+        string normalized = value.Replace('\\', '/').TrimStart('/');
 
         if (Path.IsPathRooted(value))
             throw new ArgumentException("RelativePath cannot be rooted.", nameof(value));
@@ -30,12 +30,20 @@ public readonly record struct RelativePath
         Value = normalized;
     }
 
-    public static RelativePath FromSystem(string relative) => new(relative);
+    public static RelativePath FromSystem(string relative)
+    {
+        return new(relative);
+    }
 
-    public string ToSystemPath() =>
-        string.IsNullOrEmpty(Value)
+    public string ToSystemPath()
+    {
+        return string.IsNullOrEmpty(Value)
             ? string.Empty
             : Value.Replace('/', Path.DirectorySeparatorChar);
+    }
 
-    public override string ToString() => Value;
+    public override string ToString()
+    {
+        return Value;
+    }
 }

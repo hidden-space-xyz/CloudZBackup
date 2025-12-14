@@ -1,6 +1,6 @@
 ﻿using CloudZBackup.Application.ValueObjects;
 
-namespace CloudZBackup.Application.Abstractions;
+namespace CloudZBackup.Application.Abstractions.FileSystem;
 
 public interface IFileSystem
 {

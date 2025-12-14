@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-var builder = Host.CreateApplicationBuilder(args);
+HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddLogging(logging =>
 {
@@ -23,11 +23,11 @@ builder.Services.Configure<BackupOptions>(options =>
 builder.Services.AddInfrastructure();
 builder.Services.AddSingleton<TerminalRunner>();
 
-using var host = builder.Build();
+using IHost host = builder.Build();
 
-var runner = host.Services.GetRequiredService<TerminalRunner>();
+TerminalRunner runner = host.Services.GetRequiredService<TerminalRunner>();
 
-using var cts = new CancellationTokenSource();
+using CancellationTokenSource cts = new();
 Console.CancelKeyPress += (_, e) =>
 {
     e.Cancel = true;

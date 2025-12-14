@@ -1,23 +1,33 @@
-﻿using CloudZBackup.Application.Abstractions;
+﻿using CloudZBackup.Application.Abstractions.FileSystem;
 using CloudZBackup.Application.ValueObjects;
 
-namespace CloudZBackup.Infrastructure.Implementations;
+namespace CloudZBackup.Infrastructure.FileSystem;
 
 public sealed class PhysicalFileSystem : IFileSystem
 {
-    public bool DirectoryExists(string path) => Directory.Exists(path);
+    public bool DirectoryExists(string path)
+    {
+        return Directory.Exists(path);
+    }
 
-    public void CreateDirectory(string path) => Directory.CreateDirectory(path);
+    public void CreateDirectory(string path)
+    {
+        Directory.CreateDirectory(path);
+    }
 
-    public IEnumerable<string> EnumerateFilesRecursive(string rootPath) =>
-        Directory.EnumerateFiles(rootPath, "*", SearchOption.AllDirectories);
+    public IEnumerable<string> EnumerateFilesRecursive(string rootPath)
+    {
+        return Directory.EnumerateFiles(rootPath, "*", SearchOption.AllDirectories);
+    }
 
-    public IEnumerable<string> EnumerateDirectoriesRecursive(string rootPath) =>
-        Directory.EnumerateDirectories(rootPath, "*", SearchOption.AllDirectories);
+    public IEnumerable<string> EnumerateDirectoriesRecursive(string rootPath)
+    {
+        return Directory.EnumerateDirectories(rootPath, "*", SearchOption.AllDirectories);
+    }
 
     public FileMetadata GetFileMetadata(string filePath)
     {
-        var info = new FileInfo(filePath);
+        FileInfo info = new(filePath);
         return new FileMetadata(info.Length, info.LastWriteTimeUtc);
     }
 
@@ -29,13 +39,14 @@ public sealed class PhysicalFileSystem : IFileSystem
         CancellationToken cancellationToken
     )
     {
-        var destDir = Path.GetDirectoryName(destinationFile);
+        string? destDir = Path.GetDirectoryName(destinationFile);
+
         if (!string.IsNullOrWhiteSpace(destDir))
             Directory.CreateDirectory(destDir);
 
-        var destMode = overwrite ? FileMode.Create : FileMode.CreateNew;
+        FileMode destMode = overwrite ? FileMode.Create : FileMode.CreateNew;
 
-        await using var source = new FileStream(
+        await using FileStream source = new(
             sourceFile,
             FileMode.Open,
             FileAccess.Read,
@@ -44,7 +55,7 @@ public sealed class PhysicalFileSystem : IFileSystem
             options: FileOptions.SequentialScan
         );
 
-        await using var dest = new FileStream(
+        await using FileStream dest = new(
             destinationFile,
             destMode,
             FileAccess.Write,
@@ -61,7 +72,6 @@ public sealed class PhysicalFileSystem : IFileSystem
 
     public void DeleteFileIfExists(string filePath)
     {
-        // File.Delete does not throw if the file does not exist.
         File.Delete(filePath);
     }
 
