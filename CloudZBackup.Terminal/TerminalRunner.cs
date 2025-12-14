@@ -53,12 +53,6 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         }
     }
 
-    private static string Prompt(string label)
-    {
-        Console.Write($"{label}: ");
-        return (Console.ReadLine() ?? string.Empty).Trim();
-    }
-
     private static string? GetArgValue(string[] args, string key)
     {
         for (int i = 0; i < args.Length - 1; i++)
@@ -67,6 +61,12 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
                 return args[i + 1];
         }
         return null;
+    }
+
+    private static string Prompt(string label)
+    {
+        Console.Write($"{label}: ");
+        return (Console.ReadLine() ?? string.Empty).Trim();
     }
 
     private static bool TryParseMode(string input, out BackupMode mode)

@@ -10,14 +10,6 @@ public sealed class SnapshotService(IFileSystemService fileSystem) : ISnapshotSe
     private readonly IEqualityComparer<RelativePath> relativePathComparer =
         new RelativePathComparer(OperatingSystem.IsWindows());
 
-    public Snapshot CreateEmptySnapshot()
-    {
-        return new Snapshot(
-            new Dictionary<RelativePath, FileEntry>(relativePathComparer),
-            new HashSet<RelativePath>(relativePathComparer)
-        );
-    }
-
     public Snapshot CaptureSnapshot(string rootPath, bool includeFileMetadata, CancellationToken ct)
     {
         Dictionary<RelativePath, FileEntry> files = new(relativePathComparer);
@@ -48,5 +40,13 @@ public sealed class SnapshotService(IFileSystemService fileSystem) : ISnapshotSe
         }
 
         return new Snapshot(files, dirs);
+    }
+
+    public Snapshot CreateEmptySnapshot()
+    {
+        return new Snapshot(
+            new Dictionary<RelativePath, FileEntry>(relativePathComparer),
+            new HashSet<RelativePath>(relativePathComparer)
+        );
     }
 }

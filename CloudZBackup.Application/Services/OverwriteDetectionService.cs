@@ -12,8 +12,6 @@ public sealed class OverwriteDetectionService(
     IFileSystemService fileSystemService
 ) : IOverwriteDetectionService
 {
-    private readonly BackupOptions options = options.Value;
-
     public async Task<List<RelativePath>> ComputeFilesToOverwriteAsync(
         List<RelativePath> commonFiles,
         IReadOnlyDictionary<RelativePath, FileEntry> sourceFiles,
@@ -27,7 +25,7 @@ public sealed class OverwriteDetectionService(
 
         var hashOptions = new ParallelOptions
         {
-            MaxDegreeOfParallelism = options.MaxHashConcurrency,
+            MaxDegreeOfParallelism = options.Value.MaxHashConcurrency,
             CancellationToken = ct,
         };
 

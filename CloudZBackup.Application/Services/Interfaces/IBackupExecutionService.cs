@@ -4,7 +4,7 @@ using CloudZBackup.Domain.ValueObjects;
 
 namespace CloudZBackup.Application.Services.Interfaces;
 
-public interface IExecutionService
+public interface IBackupExecutionService
 {
     Task<BackupExecutionStats> ExecuteAsync(
         BackupMode mode,

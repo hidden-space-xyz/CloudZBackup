@@ -6,11 +6,11 @@ using Microsoft.Extensions.Options;
 
 namespace CloudZBackup.Application.Services;
 
-public sealed class ExecutionService(IFileSystemService fileSystem, IOptions<BackupOptions> options)
-    : IExecutionService
+public sealed class BackupExecutionService(
+    IFileSystemService fileSystem,
+    IOptions<BackupOptions> options
+) : IBackupExecutionService
 {
-    private readonly BackupOptions options = options.Value;
-
     public async Task<BackupExecutionStats> ExecuteAsync(
         BackupMode mode,
         Plan plan,
@@ -23,7 +23,7 @@ public sealed class ExecutionService(IFileSystemService fileSystem, IOptions<Bac
     {
         var ioOptions = new ParallelOptions
         {
-            MaxDegreeOfParallelism = options.MaxFileIoConcurrency,
+            MaxDegreeOfParallelism = options.Value.MaxFileIoConcurrency,
             CancellationToken = ct,
         };
 
@@ -92,29 +92,6 @@ public sealed class ExecutionService(IFileSystemService fileSystem, IOptions<Bac
         );
     }
 
-    private async Task CreateDirectoriesAsync(
-        List<RelativePath> dirsToCreate,
-        string destRoot,
-        ParallelOptions options,
-        Action onCreated
-    )
-    {
-        if (dirsToCreate.Count == 0)
-            return;
-
-        await Parallel.ForEachAsync(
-            dirsToCreate,
-            options,
-            (relDir, ct) =>
-            {
-                string full = fileSystem.Combine(destRoot, relDir);
-                fileSystem.CreateDirectory(full);
-                onCreated();
-                return ValueTask.CompletedTask;
-            }
-        );
-    }
-
     private async Task CopyMissingFilesAsync(
         List<RelativePath> missingFiles,
         IReadOnlyDictionary<RelativePath, FileEntry> sourceFiles,
@@ -148,6 +125,52 @@ public sealed class ExecutionService(IFileSystemService fileSystem, IOptions<Bac
         );
     }
 
+    private async Task CreateDirectoriesAsync(
+        List<RelativePath> dirsToCreate,
+        string destRoot,
+        ParallelOptions options,
+        Action onCreated
+    )
+    {
+        if (dirsToCreate.Count == 0)
+            return;
+
+        await Parallel.ForEachAsync(
+            dirsToCreate,
+            options,
+            (relDir, ct) =>
+            {
+                string full = fileSystem.Combine(destRoot, relDir);
+                fileSystem.CreateDirectory(full);
+                onCreated();
+                return ValueTask.CompletedTask;
+            }
+        );
+    }
+
+    private async Task DeleteExtraFilesAsync(
+        List<RelativePath> extraFiles,
+        string destRoot,
+        ParallelOptions options,
+        Action onDeleted
+    )
+    {
+        if (extraFiles.Count == 0)
+            return;
+
+        await Parallel.ForEachAsync(
+            extraFiles,
+            options,
+            (relFile, ct) =>
+            {
+                string dstFull = fileSystem.Combine(destRoot, relFile);
+                fileSystem.DeleteFileIfExists(dstFull);
+                onDeleted();
+                return ValueTask.CompletedTask;
+            }
+        );
+    }
+
     private async Task OverwriteFilesAsync(
         IReadOnlyCollection<RelativePath> overwriteFiles,
         IReadOnlyDictionary<RelativePath, FileEntry> sourceFiles,
@@ -174,29 +197,6 @@ public sealed class ExecutionService(IFileSystemService fileSystem, IOptions<Bac
                     ct
                 );
                 onOverwritten();
-            }
-        );
-    }
-
-    private async Task DeleteExtraFilesAsync(
-        List<RelativePath> extraFiles,
-        string destRoot,
-        ParallelOptions options,
-        Action onDeleted
-    )
-    {
-        if (extraFiles.Count == 0)
-            return;
-
-        await Parallel.ForEachAsync(
-            extraFiles,
-            options,
-            (relFile, ct) =>
-            {
-                string dstFull = fileSystem.Combine(destRoot, relFile);
-                fileSystem.DeleteFileIfExists(dstFull);
-                onDeleted();
-                return ValueTask.CompletedTask;
             }
         );
     }

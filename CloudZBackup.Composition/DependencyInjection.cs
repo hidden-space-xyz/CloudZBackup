@@ -9,16 +9,21 @@ namespace CloudZBackup.Composition;
 
 public static class DependencyInjection
 {
+    public static IServiceCollection AddApplication(this IServiceCollection services)
+    {
+        services.AddSingleton<ISnapshotService, SnapshotService>();
+        services.AddSingleton<IPlanService, PlanService>();
+        services.AddSingleton<IOverwriteDetectionService, OverwriteDetectionService>();
+        services.AddSingleton<IBackupExecutionService, BackupExecutionService>();
+        services.AddSingleton<IBackupOrchestrator, BackupOrchestrator>();
+
+        return services;
+    }
+
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
         services.AddSingleton<IFileSystemService, FileSystemService>();
         services.AddSingleton<IHashingService, HashingService>();
-        services.AddSingleton<IEndpointService, EndpointService>();
-        services.AddSingleton<ISnapshotService, SnapshotService>();
-        services.AddSingleton<IPlanService, PlanService>();
-        services.AddSingleton<IOverwriteDetectionService, OverwriteDetectionService>();
-        services.AddSingleton<IExecutionService, ExecutionService>();
-        services.AddSingleton<IBackupOrchestrator, BackupOrchestrator>();
 
         return services;
     }

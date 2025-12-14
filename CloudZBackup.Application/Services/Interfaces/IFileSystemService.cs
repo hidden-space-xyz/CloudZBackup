@@ -1,17 +1,12 @@
 ﻿using CloudZBackup.Application.ValueObjects;
+using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
 
 namespace CloudZBackup.Application.Services.Interfaces;
 
 public interface IFileSystemService
 {
-    bool DirectoryExists(string path);
-    void CreateDirectory(string path);
-
-    IEnumerable<string> EnumerateFilesRecursive(string rootPath);
-    IEnumerable<string> EnumerateDirectoriesRecursive(string rootPath);
-
-    FileMetadata GetFileMetadata(string filePath);
+    string Combine(string root, RelativePath rel);
 
     Task CopyFileAsync(
         string sourceFile,
@@ -21,11 +16,25 @@ public interface IFileSystemService
         CancellationToken cancellationToken
     );
 
-    void DeleteFileIfExists(string filePath);
+    void CreateDirectory(string path);
 
     void DeleteDirectoryIfExists(string directoryPath, bool recursive);
 
+    void DeleteFileIfExists(string filePath);
+
+    bool DirectoryExists(string path);
+
+    void EnsureSourceExists(string sourceRoot);
+
+    IEnumerable<string> EnumerateDirectoriesRecursive(string rootPath);
+
+    IEnumerable<string> EnumerateFilesRecursive(string rootPath);
+
+    FileMetadata GetFileMetadata(string filePath);
+
+    bool PrepareDestination(BackupMode mode, string destRoot);
+
     (string sourceRoot, string destRoot) ValidateAndNormalize(BackupRequest request);
+
     void ValidateNoOverlap(string sourceRoot, string destRoot);
-    string Combine(string root, RelativePath rel);
 }

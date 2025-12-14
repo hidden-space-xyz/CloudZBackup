@@ -20,6 +20,7 @@ builder.Services.Configure<BackupOptions>(options =>
     options.MaxFileIoConcurrency = 4;
 });
 
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddSingleton<TerminalRunner>();
 

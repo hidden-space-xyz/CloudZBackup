@@ -8,11 +8,10 @@ using Microsoft.Extensions.Logging;
 namespace CloudZBackup.Application.Orchestrators;
 
 public sealed class BackupOrchestrator(
-    IEndpointService endpointService,
     ISnapshotService snapshotService,
     IPlanService planService,
     IOverwriteDetectionService overwriteDetectionService,
-    IExecutionService executionService,
+    IBackupExecutionService executionService,
     IFileSystemService fileSystemService,
     ILogger<BackupOrchestrator> logger
 ) : IBackupOrchestrator
@@ -26,9 +25,9 @@ public sealed class BackupOrchestrator(
 
         fileSystemService.ValidateNoOverlap(sourceRoot, destRoot);
 
-        endpointService.EnsureSourceExists(sourceRoot);
+        fileSystemService.EnsureSourceExists(sourceRoot);
 
-        bool destWasCreated = endpointService.PrepareDestination(request.Mode, destRoot);
+        bool destWasCreated = fileSystemService.PrepareDestination(request.Mode, destRoot);
 
         logger.LogInformation("Capturing snapshots...");
 
