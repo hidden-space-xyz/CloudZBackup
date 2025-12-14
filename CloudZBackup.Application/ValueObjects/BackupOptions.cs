@@ -1,4 +1,4 @@
-﻿namespace CloudZBackup.Application.UseCases.Options;
+﻿namespace CloudZBackup.Application.ValueObjects;
 
 public sealed class BackupOptions
 {

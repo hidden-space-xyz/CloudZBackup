@@ -1,9 +1,9 @@
 ﻿using System.Security.Cryptography;
-using CloudZBackup.Application.Abstractions.Hashing;
+using CloudZBackup.Application.Services.Interfaces;
 
-namespace CloudZBackup.Infrastructure.Hashing;
+namespace CloudZBackup.Infrastructure.Services;
 
-public sealed class Sha256HashCalculator : IHashCalculator
+public sealed class HashingService : IHashingService
 {
     public async Task<byte[]> ComputeSha256Async(
         string filePath,

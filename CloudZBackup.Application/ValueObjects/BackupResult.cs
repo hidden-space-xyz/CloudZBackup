@@ -1,4 +1,4 @@
-﻿namespace CloudZBackup.Application.UseCases.Result;
+﻿namespace CloudZBackup.Application.ValueObjects;
 
 public sealed record BackupResult(
     int DirectoriesCreated,

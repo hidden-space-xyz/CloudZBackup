@@ -1,9 +1,8 @@
-﻿using CloudZBackup.Application.Abstractions.FileSystem;
-using CloudZBackup.Application.Abstractions.Hashing;
-using CloudZBackup.Application.Abstractions.UseCases;
-using CloudZBackup.Application.UseCases;
-using CloudZBackup.Infrastructure.FileSystem;
-using CloudZBackup.Infrastructure.Hashing;
+﻿using CloudZBackup.Application.Orchestrators;
+using CloudZBackup.Application.Orchestrators.Interfaces;
+using CloudZBackup.Application.Services;
+using CloudZBackup.Application.Services.Interfaces;
+using CloudZBackup.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CloudZBackup.Composition;
@@ -12,9 +11,15 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
-        services.AddSingleton<IFileSystem, PhysicalFileSystem>();
-        services.AddSingleton<IHashCalculator, Sha256HashCalculator>();
-        services.AddSingleton<IExecuteBackupUseCase, ExecuteBackupUseCase>();
+        services.AddSingleton<IFileSystemService, FileSystemService>();
+        services.AddSingleton<IHashingService, HashingService>();
+        services.AddSingleton<IEndpointService, EndpointService>();
+        services.AddSingleton<ISnapshotService, SnapshotService>();
+        services.AddSingleton<IPlanService, PlanService>();
+        services.AddSingleton<IOverwriteDetectionService, OverwriteDetectionService>();
+        services.AddSingleton<IExecutionService, ExecutionService>();
+        services.AddSingleton<IBackupOrchestrator, BackupOrchestrator>();
+
         return services;
     }
 }

@@ -1,8 +1,9 @@
 ﻿using CloudZBackup.Application.ValueObjects;
+using CloudZBackup.Domain.ValueObjects;
 
-namespace CloudZBackup.Application.Abstractions.FileSystem;
+namespace CloudZBackup.Application.Services.Interfaces;
 
-public interface IFileSystem
+public interface IFileSystemService
 {
     bool DirectoryExists(string path);
     void CreateDirectory(string path);
@@ -23,4 +24,8 @@ public interface IFileSystem
     void DeleteFileIfExists(string filePath);
 
     void DeleteDirectoryIfExists(string directoryPath, bool recursive);
+
+    (string sourceRoot, string destRoot) ValidateAndNormalize(BackupRequest request);
+    void ValidateNoOverlap(string sourceRoot, string destRoot);
+    string Combine(string root, RelativePath rel);
 }

@@ -1,10 +1,59 @@
-﻿using CloudZBackup.Application.Abstractions.FileSystem;
+﻿using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
+using CloudZBackup.Domain.ValueObjects;
 
-namespace CloudZBackup.Infrastructure.FileSystem;
+namespace CloudZBackup.Infrastructure.Services;
 
-public sealed class PhysicalFileSystem : IFileSystem
+public sealed class FileSystemService : IFileSystemService
 {
+    private readonly StringComparison pathComparison = OperatingSystem.IsWindows()
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
+
+    public (string sourceRoot, string destRoot) ValidateAndNormalize(BackupRequest request)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.DestinationPath);
+
+        string sourceRoot = NormalizeFullPath(request.SourcePath);
+        string destRoot = NormalizeFullPath(request.DestinationPath);
+
+        return (sourceRoot, destRoot);
+    }
+
+    public void ValidateNoOverlap(string sourceRoot, string destRoot)
+    {
+        string src = EnsureTrailingSeparator(sourceRoot);
+        string dst = EnsureTrailingSeparator(destRoot);
+
+        if (dst.StartsWith(src, pathComparison))
+            throw new InvalidOperationException(
+                "Destination cannot be located inside the source directory."
+            );
+
+        if (src.StartsWith(dst, pathComparison))
+            throw new InvalidOperationException(
+                "Source cannot be located inside the destination directory."
+            );
+    }
+
+    public string Combine(string root, RelativePath rel)
+    {
+        return Path.Combine(root, rel.ToSystemPath());
+    }
+
+    private static string NormalizeFullPath(string path)
+    {
+        return Path.GetFullPath(path)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private static string EnsureTrailingSeparator(string path)
+    {
+        return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+    }
+
     public bool DirectoryExists(string path)
     {
         return Directory.Exists(path);

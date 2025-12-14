@@ -1,12 +1,11 @@
-﻿using CloudZBackup.Application.Abstractions.UseCases;
-using CloudZBackup.Application.UseCases.Request;
-using CloudZBackup.Application.UseCases.Result;
+﻿using CloudZBackup.Application.Orchestrators.Interfaces;
+using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace CloudZBackup.Terminal;
 
-public sealed class TerminalRunner(IExecuteBackupUseCase useCase, ILogger<TerminalRunner> logger)
+public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<TerminalRunner> logger)
 {
     public async Task RunAsync(string[] args, CancellationToken cancellationToken)
     {

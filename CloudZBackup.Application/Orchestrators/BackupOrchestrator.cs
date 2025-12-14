@@ -1,0 +1,88 @@
+﻿using CloudZBackup.Application.Orchestrators.Interfaces;
+using CloudZBackup.Application.Services.Interfaces;
+using CloudZBackup.Application.ValueObjects;
+using CloudZBackup.Domain.Enums;
+using CloudZBackup.Domain.ValueObjects;
+using Microsoft.Extensions.Logging;
+
+namespace CloudZBackup.Application.Orchestrators;
+
+public sealed class BackupOrchestrator(
+    IEndpointService endpointService,
+    ISnapshotService snapshotService,
+    IPlanService planService,
+    IOverwriteDetectionService overwriteDetectionService,
+    IExecutionService executionService,
+    IFileSystemService fileSystemService,
+    ILogger<BackupOrchestrator> logger
+) : IBackupOrchestrator
+{
+    public async Task<BackupResult> ExecuteAsync(
+        BackupRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        (string sourceRoot, string destRoot) = fileSystemService.ValidateAndNormalize(request);
+
+        fileSystemService.ValidateNoOverlap(sourceRoot, destRoot);
+
+        endpointService.EnsureSourceExists(sourceRoot);
+
+        bool destWasCreated = endpointService.PrepareDestination(request.Mode, destRoot);
+
+        logger.LogInformation("Capturing snapshots...");
+
+        bool needSourceMeta = request.Mode is BackupMode.Sync or BackupMode.Add;
+        bool needDestMeta = request.Mode is BackupMode.Sync;
+
+        Snapshot sourceSnapshot = snapshotService.CaptureSnapshot(
+            sourceRoot,
+            needSourceMeta,
+            cancellationToken
+        );
+        Snapshot destSnapshot = destWasCreated
+            ? snapshotService.CreateEmptySnapshot()
+            : snapshotService.CaptureSnapshot(destRoot, needDestMeta, cancellationToken);
+
+        logger.LogInformation("Planning operations for mode: {Mode}", request.Mode);
+
+        Plan plan = planService.BuildPlan(request.Mode, sourceSnapshot, destSnapshot);
+
+        List<RelativePath> filesToOverwrite = [];
+
+        if (request.Mode == BackupMode.Sync && plan.CommonFiles.Count > 0)
+        {
+            logger.LogInformation(
+                "Verifying {Count} existing file(s) using SHA-256...",
+                plan.CommonFiles.Count
+            );
+
+            filesToOverwrite = await overwriteDetectionService.ComputeFilesToOverwriteAsync(
+                commonFiles: plan.CommonFiles,
+                sourceFiles: sourceSnapshot.Files,
+                destFiles: destSnapshot.Files,
+                sourceRoot: sourceRoot,
+                destRoot: destRoot,
+                ct: cancellationToken
+            );
+        }
+
+        BackupExecutionStats stats = await executionService.ExecuteAsync(
+            mode: request.Mode,
+            plan: plan,
+            sourceSnapshot: sourceSnapshot,
+            sourceRoot: sourceRoot,
+            destRoot: destRoot,
+            filesToOverwrite: filesToOverwrite,
+            ct: cancellationToken
+        );
+
+        return new BackupResult(
+            stats.CreatedDirs,
+            stats.Copied,
+            stats.Overwritten,
+            stats.DeletedFiles,
+            stats.DeletedDirs
+        );
+    }
+}
