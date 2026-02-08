@@ -6,14 +6,19 @@ using System.Collections.Concurrent;
 
 namespace CloudZBackup.Application.Services;
 
+/// <summary>
+/// Identifies which files among a set of common (source ∩ destination) files have changed
+/// by comparing file sizes and SHA-256 hashes.
+/// </summary>
 public sealed class OverwriteDetectionService(
     IHashingService hashCalculator,
     IOptions<BackupOptions> options,
     IFileSystemService fileSystemService
 ) : IOverwriteDetectionService
 {
+    /// <inheritdoc />
     public async Task<List<RelativePath>> ComputeFilesToOverwriteAsync(
-        List<RelativePath> commonFiles,
+        IReadOnlyList<RelativePath> commonFiles,
         IReadOnlyDictionary<RelativePath, FileEntry> sourceFiles,
         IReadOnlyDictionary<RelativePath, FileEntry> destFiles,
         string sourceRoot,

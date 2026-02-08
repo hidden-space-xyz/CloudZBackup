@@ -7,8 +7,18 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CloudZBackup.Composition;
 
+/// <summary>
+/// Provides extension methods to register application and infrastructure services
+/// into the dependency-injection container, keeping the composition root isolated
+/// from individual layer concerns.
+/// </summary>
 public static class DependencyInjection
 {
+    /// <summary>
+    /// Registers all application-layer services and orchestrators.
+    /// </summary>
+    /// <param name="services">The service collection to configure.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> instance for chaining.</returns>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddSingleton<ISnapshotService, SnapshotService>();
@@ -20,6 +30,11 @@ public static class DependencyInjection
         return services;
     }
 
+    /// <summary>
+    /// Registers all infrastructure-layer services (file system, hashing, etc.).
+    /// </summary>
+    /// <param name="services">The service collection to configure.</param>
+    /// <returns>The same <see cref="IServiceCollection"/> instance for chaining.</returns>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
         services.AddSingleton<IFileSystemService, FileSystemService>();

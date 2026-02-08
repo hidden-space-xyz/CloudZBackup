@@ -6,12 +6,18 @@ using Microsoft.Extensions.Options;
 
 namespace CloudZBackup.Application.Services;
 
+/// <summary>
+/// Executes the file-system operations described by a <see cref="Plan"/>,
+/// including directory creation, file copying, overwriting, and deletion.
+/// Concurrency is controlled by <see cref="BackupOptions"/>.
+/// </summary>
 public sealed class BackupExecutionService(
     IFileSystemService fileSystem,
     IOptions<BackupOptions> options
 ) : IBackupExecutionService
 {
-    public async Task<BackupExecutionStats> ExecuteAsync(
+    /// <inheritdoc />
+    public async Task<BackupResult> ExecuteAsync(
         BackupMode mode,
         Plan plan,
         Snapshot sourceSnapshot,
@@ -33,11 +39,11 @@ public sealed class BackupExecutionService(
         int totalItems = ComputeTotalItems(mode, plan, filesToOverwrite);
         int processed = 0;
 
-        int createdDirs = 0,
-            copied = 0,
-            overwritten = 0,
-            deletedFiles = 0,
-            deletedDirs = 0;
+        int directoriesCreated = 0,
+            filesCopied = 0,
+            filesOverwritten = 0,
+            filesDeleted = 0,
+            directoriesDeleted = 0;
 
         void ReportProgress(string phase)
         {
@@ -50,12 +56,12 @@ public sealed class BackupExecutionService(
         if (mode is BackupMode.Sync or BackupMode.Add)
         {
             await CreateDirectoriesAsync(
-                plan.DirsToCreate,
+                plan.DirectoriesToCreate,
                 destRoot,
                 ioOptions,
                 () =>
                 {
-                    Interlocked.Increment(ref createdDirs);
+                    Interlocked.Increment(ref directoriesCreated);
                     ReportProgress("Creating directories");
                 }
             );
@@ -68,7 +74,7 @@ public sealed class BackupExecutionService(
                 ioOptions,
                 () =>
                 {
-                    Interlocked.Increment(ref copied);
+                    Interlocked.Increment(ref filesCopied);
                     ReportProgress("Copying files");
                 }
             );
@@ -83,7 +89,7 @@ public sealed class BackupExecutionService(
                     ioOptions,
                     () =>
                     {
-                        Interlocked.Increment(ref overwritten);
+                        Interlocked.Increment(ref filesOverwritten);
                         ReportProgress("Overwriting files");
                     }
                 );
@@ -98,31 +104,35 @@ public sealed class BackupExecutionService(
                 ioOptions,
                 () =>
                 {
-                    Interlocked.Increment(ref deletedFiles);
+                    Interlocked.Increment(ref filesDeleted);
                     ReportProgress("Deleting files");
                 }
             );
 
-            foreach (RelativePath relDir in plan.TopLevelExtraDirs)
+            foreach (RelativePath relDir in plan.TopLevelExtraDirectories)
             {
                 ct.ThrowIfCancellationRequested();
 
                 string full = fileSystem.Combine(destRoot, relDir);
                 fileSystem.DeleteDirectoryIfExists(full, recursive: true);
-                deletedDirs++;
+                directoriesDeleted++;
                 ReportProgress("Deleting directories");
             }
         }
 
-        return new BackupExecutionStats(
-            createdDirs,
-            copied,
-            overwritten,
-            deletedFiles,
-            deletedDirs
+        return new BackupResult(
+            directoriesCreated,
+            filesCopied,
+            filesOverwritten,
+            filesDeleted,
+            directoriesDeleted
         );
     }
 
+    /// <summary>
+    /// Determines a recommended IO concurrency level based on the destination drive type.
+    /// Network and removable drives are limited to sequential access.
+    /// </summary>
     private int GetRecommendedIoConcurrency(string destinationRoot)
     {
         try
@@ -146,6 +156,10 @@ public sealed class BackupExecutionService(
         }
     }
 
+    /// <summary>
+    /// Computes the total number of individual operations the plan will perform,
+    /// used to report progress as a fraction of a whole.
+    /// </summary>
     private static int ComputeTotalItems(
         BackupMode mode,
         Plan plan,
@@ -156,7 +170,7 @@ public sealed class BackupExecutionService(
 
         if (mode is BackupMode.Sync or BackupMode.Add)
         {
-            total += plan.DirsToCreate.Count;
+            total += plan.DirectoriesToCreate.Count;
             total += plan.MissingFiles.Count;
 
             if (mode == BackupMode.Sync)
@@ -166,14 +180,17 @@ public sealed class BackupExecutionService(
         if (mode is BackupMode.Sync or BackupMode.Remove)
         {
             total += plan.ExtraFiles.Count;
-            total += plan.TopLevelExtraDirs.Count;
+            total += plan.TopLevelExtraDirectories.Count;
         }
 
         return total;
     }
 
+    /// <summary>
+    /// Copies files that exist in the source but not in the destination.
+    /// </summary>
     private async Task CopyMissingFilesAsync(
-        List<RelativePath> missingFiles,
+        IReadOnlyList<RelativePath> missingFiles,
         IReadOnlyDictionary<RelativePath, FileEntry> sourceFiles,
         string sourceRoot,
         string destRoot,
@@ -205,8 +222,11 @@ public sealed class BackupExecutionService(
         );
     }
 
+    /// <summary>
+    /// Creates directories that exist in the source but not in the destination.
+    /// </summary>
     private async Task CreateDirectoriesAsync(
-        List<RelativePath> dirsToCreate,
+        IReadOnlyList<RelativePath> dirsToCreate,
         string destRoot,
         ParallelOptions options,
         Action onCreated
@@ -228,8 +248,11 @@ public sealed class BackupExecutionService(
         );
     }
 
+    /// <summary>
+    /// Deletes files from the destination that do not exist in the source.
+    /// </summary>
     private async Task DeleteExtraFilesAsync(
-        List<RelativePath> extraFiles,
+        IReadOnlyList<RelativePath> extraFiles,
         string destRoot,
         ParallelOptions options,
         Action onDeleted
@@ -251,6 +274,9 @@ public sealed class BackupExecutionService(
         );
     }
 
+    /// <summary>
+    /// Overwrites destination files that have been detected as changed relative to the source.
+    /// </summary>
     private async Task OverwriteFilesAsync(
         IReadOnlyCollection<RelativePath> overwriteFiles,
         IReadOnlyDictionary<RelativePath, FileEntry> sourceFiles,

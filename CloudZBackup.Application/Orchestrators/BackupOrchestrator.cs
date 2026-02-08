@@ -7,6 +7,11 @@ using Microsoft.Extensions.Logging;
 
 namespace CloudZBackup.Application.Orchestrators;
 
+/// <summary>
+/// Orchestrates a complete backup operation: validates inputs, captures snapshots,
+/// builds a plan, detects overwrites, and delegates execution to the
+/// <see cref="IBackupExecutionService"/>.
+/// </summary>
 public sealed class BackupOrchestrator(
     ISnapshotService snapshotService,
     IPlanService planService,
@@ -16,6 +21,7 @@ public sealed class BackupOrchestrator(
     ILogger<BackupOrchestrator> logger
 ) : IBackupOrchestrator
 {
+    /// <inheritdoc />
     public async Task<BackupResult> ExecuteAsync(
         BackupRequest request,
         IProgress<BackupProgress>? progress,
@@ -67,7 +73,7 @@ public sealed class BackupOrchestrator(
             );
         }
 
-        BackupExecutionStats stats = await executionService.ExecuteAsync(
+        return await executionService.ExecuteAsync(
             mode: request.Mode,
             plan: plan,
             sourceSnapshot: sourceSnapshot,
@@ -76,14 +82,6 @@ public sealed class BackupOrchestrator(
             filesToOverwrite: filesToOverwrite,
             progress: progress,
             ct: cancellationToken
-        );
-
-        return new BackupResult(
-            stats.CreatedDirs,
-            stats.Copied,
-            stats.Overwritten,
-            stats.DeletedFiles,
-            stats.DeletedDirs
         );
     }
 }

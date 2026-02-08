@@ -7,14 +7,24 @@ using System.Text;
 
 namespace CloudZBackup.Terminal;
 
+/// <summary>
+/// Provides the interactive terminal user interface for CloudZBackup,
+/// handling argument parsing, progress rendering, and result display.
+/// </summary>
 public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<TerminalRunner> logger)
 {
     private const int BarWidth = 30;
     private const int ProgressRenderIntervalMs = 80;
-    private readonly object progressLock = new();
-    private long lastProgressTimestamp;
-    private volatile bool progressEnabled;
+    private readonly object _progressLock = new();
+    private long _lastProgressTimestamp;
+    private volatile bool _progressEnabled;
 
+    /// <summary>
+    /// Entry point that parses command-line arguments (or prompts interactively),
+    /// executes the backup, and renders progress and results to the console.
+    /// </summary>
+    /// <param name="args">Command-line arguments (<c>--source</c>, <c>--dest</c>, <c>--mode</c>).</param>
+    /// <param name="cancellationToken">A token to observe for cancellation requests.</param>
     public async Task RunAsync(string[] args, CancellationToken cancellationToken)
     {
         Console.InputEncoding = Encoding.UTF8;
@@ -48,26 +58,25 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
             PrintSection("Progress");
             var stopwatch = Stopwatch.StartNew();
 
-            progressEnabled = true;
+            _progressEnabled = true;
             var progress = new Progress<BackupProgress>(RenderProgressBar);
 
             BackupResult result = await useCase.ExecuteAsync(request, progress, cancellationToken);
 
             stopwatch.Stop();
 
-            lock (progressLock)
+            lock (_progressLock)
             {
-                progressEnabled = false;
+                _progressEnabled = false;
                 ClearProgressBar();
                 PrintResultsSummary(result, stopwatch.Elapsed);
             }
-
         }
         catch (OperationCanceledException)
         {
-            lock (progressLock)
+            lock (_progressLock)
             {
-                progressEnabled = false;
+                _progressEnabled = false;
                 ClearProgressBar();
                 Console.WriteLine();
                 PrintWarning("Operation canceled by user.");
@@ -76,9 +85,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         }
         catch (Exception ex)
         {
-            lock (progressLock)
+            lock (_progressLock)
             {
-                progressEnabled = false;
+                _progressEnabled = false;
                 ClearProgressBar();
                 Console.WriteLine();
                 PrintError(ex.Message);
@@ -86,9 +95,11 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
             logger.LogError(ex, "Backup failed.");
             Environment.ExitCode = 1;
         }
-
     }
 
+    /// <summary>
+    /// Prints the application banner to the console.
+    /// </summary>
     private static void PrintBanner()
     {
         Console.WriteLine();
@@ -102,11 +113,17 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         Console.WriteLine();
     }
 
+    /// <summary>
+    /// Prints a section header line to the console.
+    /// </summary>
     private static void PrintSection(string title)
     {
         WriteColored($"   ── {title} ─────────────────────────────────", ConsoleColor.DarkCyan);
     }
 
+    /// <summary>
+    /// Prints a key-value pair to the console.
+    /// </summary>
     private static void PrintKeyValue(string key, string value)
     {
         Console.Write("     ");
@@ -114,6 +131,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         WriteColored(value, ConsoleColor.White);
     }
 
+    /// <summary>
+    /// Prints the final summary table showing operation counts and elapsed time.
+    /// </summary>
     private static void PrintResultsSummary(BackupResult result, TimeSpan elapsed)
     {
         WriteColored("   ✔  Backup completed successfully!", ConsoleColor.Green);
@@ -146,6 +166,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         Console.WriteLine();
     }
 
+    /// <summary>
+    /// Prints a single row of the results summary table.
+    /// </summary>
     private static void PrintTableRow(string label, int value, ConsoleColor valueColor = ConsoleColor.White)
     {
         Console.Write("     ");
@@ -156,6 +179,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         WriteColored(" │", ConsoleColor.DarkGray);
     }
 
+    /// <summary>
+    /// Prints an error message in red to the console.
+    /// </summary>
     private static void PrintError(string message)
     {
         Console.WriteLine();
@@ -164,6 +190,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         Console.WriteLine();
     }
 
+    /// <summary>
+    /// Prints a warning message in yellow to the console.
+    /// </summary>
     private static void PrintWarning(string message)
     {
         Console.Write("   ");
@@ -171,22 +200,25 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         Console.WriteLine();
     }
 
+    /// <summary>
+    /// Renders an inline progress bar on the current console line, throttled to avoid excessive redraws.
+    /// </summary>
     private void RenderProgressBar(BackupProgress p)
     {
-        lock (progressLock)
+        lock (_progressLock)
         {
-            if (!progressEnabled)
+            if (!_progressEnabled)
                 return;
 
             long now = Stopwatch.GetTimestamp();
-            if (p.ProcessedItems < p.TotalItems && lastProgressTimestamp != 0)
+            if (p.ProcessedItems < p.TotalItems && _lastProgressTimestamp != 0)
             {
-                double elapsedMs = (now - lastProgressTimestamp) * 1000.0 / Stopwatch.Frequency;
+                double elapsedMs = (now - _lastProgressTimestamp) * 1000.0 / Stopwatch.Frequency;
                 if (elapsedMs < ProgressRenderIntervalMs)
                     return;
             }
 
-            lastProgressTimestamp = now;
+            _lastProgressTimestamp = now;
 
             if (p.TotalItems <= 0)
             {
@@ -239,6 +271,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         }
     }
 
+    /// <summary>
+    /// Clears the current progress bar line from the console.
+    /// </summary>
     private static void ClearProgressBar()
     {
         try
@@ -255,6 +290,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         }
     }
 
+    /// <summary>
+    /// Writes text to the console in the specified foreground color.
+    /// </summary>
     private static void WriteColored(string text, ConsoleColor color, bool newLine = true)
     {
         ConsoleColor previous = Console.ForegroundColor;
@@ -266,12 +304,18 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         Console.ForegroundColor = previous;
     }
 
+    /// <summary>
+    /// Formats a <see cref="TimeSpan"/> into a human-readable short string.
+    /// </summary>
     private static string FormatElapsed(TimeSpan ts) => ts.TotalSeconds < 1
         ? $"{ts.TotalMilliseconds:F0} ms"
         : ts.TotalMinutes < 1
             ? $"{ts.TotalSeconds:F1} s"
             : $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
 
+    /// <summary>
+    /// Retrieves the value associated with a command-line argument key, or <see langword="null"/> if not found.
+    /// </summary>
     private static string? GetArgValue(string[] args, string key)
     {
         for (int i = 0; i < args.Length - 1; i++)
@@ -282,6 +326,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         return null;
     }
 
+    /// <summary>
+    /// Prompts the user for input with the specified label and returns the trimmed response.
+    /// </summary>
     private static string Prompt(string label)
     {
         Console.Write("   ");
@@ -294,6 +341,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         return value;
     }
 
+    /// <summary>
+    /// Attempts to parse a string into a <see cref="BackupMode"/> value.
+    /// </summary>
     private static bool TryParseMode(string input, out BackupMode mode)
     {
         switch ((input ?? string.Empty).Trim().ToLowerInvariant())

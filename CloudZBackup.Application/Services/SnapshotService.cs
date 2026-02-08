@@ -1,19 +1,24 @@
-﻿using CloudZBackup.Application.Comparers;
-using CloudZBackup.Application.Services.Interfaces;
+﻿using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
+using CloudZBackup.Domain.Comparers;
 using CloudZBackup.Domain.ValueObjects;
 
 namespace CloudZBackup.Application.Services;
 
+/// <summary>
+/// Captures directory-tree snapshots by enumerating files and directories through
+/// the <see cref="IFileSystemService"/> abstraction.
+/// </summary>
 public sealed class SnapshotService(IFileSystemService fileSystem) : ISnapshotService
 {
-    private readonly IEqualityComparer<RelativePath> relativePathComparer =
+    private readonly IEqualityComparer<RelativePath> _relativePathComparer =
         new RelativePathComparer(OperatingSystem.IsWindows());
 
+    /// <inheritdoc />
     public Snapshot CaptureSnapshot(string rootPath, bool includeFileMetadata, CancellationToken ct)
     {
-        Dictionary<RelativePath, FileEntry> files = new(relativePathComparer);
-        HashSet<RelativePath> dirs = new(relativePathComparer);
+        Dictionary<RelativePath, FileEntry> files = new(_relativePathComparer);
+        HashSet<RelativePath> dirs = new(_relativePathComparer);
 
         foreach (string dir in fileSystem.EnumerateDirectoriesRecursive(rootPath))
         {
@@ -42,11 +47,12 @@ public sealed class SnapshotService(IFileSystemService fileSystem) : ISnapshotSe
         return new Snapshot(files, dirs);
     }
 
+    /// <inheritdoc />
     public Snapshot CreateEmptySnapshot()
     {
         return new Snapshot(
-            new Dictionary<RelativePath, FileEntry>(relativePathComparer),
-            new HashSet<RelativePath>(relativePathComparer)
+            new Dictionary<RelativePath, FileEntry>(_relativePathComparer),
+            new HashSet<RelativePath>(_relativePathComparer)
         );
     }
 }
