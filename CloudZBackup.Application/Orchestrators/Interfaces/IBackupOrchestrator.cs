@@ -1,6 +1,6 @@
-﻿using CloudZBackup.Application.ValueObjects;
+﻿namespace CloudZBackup.Application.Orchestrators.Interfaces;
 
-namespace CloudZBackup.Application.Orchestrators.Interfaces;
+using CloudZBackup.Application.ValueObjects;
 
 /// <summary>
 /// The primary application use case that orchestrates a complete backup operation
@@ -18,6 +18,5 @@ public interface IBackupOrchestrator
     Task<BackupResult> ExecuteAsync(
         BackupRequest request,
         IProgress<BackupProgress>? progress,
-        CancellationToken cancellationToken
-    );
+        CancellationToken cancellationToken);
 }

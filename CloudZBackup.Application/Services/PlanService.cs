@@ -1,10 +1,10 @@
-﻿using CloudZBackup.Application.Services.Interfaces;
+﻿namespace CloudZBackup.Application.Services;
+
+using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Comparers;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
-
-namespace CloudZBackup.Application.Services;
 
 /// <summary>
 /// Compares source and destination <see cref="Snapshot"/> instances to produce an
@@ -13,7 +13,7 @@ namespace CloudZBackup.Application.Services;
 /// </summary>
 public sealed class PlanService : IPlanService
 {
-    private readonly IEqualityComparer<RelativePath> _relativePathComparer =
+    private readonly IEqualityComparer<RelativePath> relativePathComparer =
         new RelativePathComparer(OperatingSystem.IsWindows());
 
     /// <inheritdoc />
@@ -30,7 +30,9 @@ public sealed class PlanService : IPlanService
             foreach (RelativePath dir in source.Directories)
             {
                 if (!dest.Directories.Contains(dir))
+                {
                     directoriesToCreate.Add(dir);
+                }
             }
 
             directoriesToCreate.Sort((a, b) => a.Value.Length.CompareTo(b.Value.Length));
@@ -38,9 +40,13 @@ public sealed class PlanService : IPlanService
             foreach (RelativePath file in source.Files.Keys)
             {
                 if (!dest.Files.ContainsKey(file))
+                {
                     missingFiles.Add(file);
+                }
                 else if (mode == BackupMode.Sync)
+                {
                     commonFiles.Add(file);
+                }
             }
         }
 
@@ -49,17 +55,21 @@ public sealed class PlanService : IPlanService
             foreach (RelativePath file in dest.Files.Keys)
             {
                 if (!source.Files.ContainsKey(file))
+                {
                     extraFiles.Add(file);
+                }
             }
 
-            var extraDirs = new HashSet<RelativePath>(_relativePathComparer);
+            var extraDirs = new HashSet<RelativePath>(this.relativePathComparer);
             foreach (RelativePath dir in dest.Directories)
             {
                 if (!source.Directories.Contains(dir))
+                {
                     extraDirs.Add(dir);
+                }
             }
 
-            topLevelExtraDirectories = ComputeTopLevelDirectories(extraDirs);
+            topLevelExtraDirectories = this.ComputeTopLevelDirectories(extraDirs);
         }
 
         return new Plan(
@@ -67,8 +77,7 @@ public sealed class PlanService : IPlanService
             missingFiles,
             commonFiles,
             extraFiles,
-            topLevelExtraDirectories
-        );
+            topLevelExtraDirectories);
     }
 
     /// <summary>
@@ -84,14 +93,19 @@ public sealed class PlanService : IPlanService
 
         HashSet<string> rawValues = new(extras.Count, stringComparer);
         foreach (RelativePath rp in extras)
+        {
             rawValues.Add(rp.Value);
+        }
 
         List<RelativePath> result = new(extras.Count);
         foreach (RelativePath d in extras)
         {
             if (!HasAncestorInSet(d.Value, rawValues))
+            {
                 result.Add(d);
+            }
         }
+
         return result;
 
         static bool HasAncestorInSet(string value, HashSet<string> set)
@@ -102,11 +116,15 @@ public sealed class PlanService : IPlanService
             {
                 int idx = span.LastIndexOf('/');
                 if (idx <= 0)
+                {
                     return false;
+                }
 
                 span = span[..idx];
                 if (set.Contains(span.ToString()))
+                {
                     return true;
+                }
             }
         }
     }

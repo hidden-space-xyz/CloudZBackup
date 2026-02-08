@@ -1,6 +1,6 @@
-﻿using CloudZBackup.Domain.ValueObjects;
+﻿namespace CloudZBackup.Application.ValueObjects;
 
-namespace CloudZBackup.Application.ValueObjects;
+using CloudZBackup.Domain.ValueObjects;
 
 /// <summary>
 /// Describes the set of file-system operations that a backup must perform,
@@ -16,5 +16,4 @@ public sealed record Plan(
     IReadOnlyList<RelativePath> MissingFiles,
     IReadOnlyList<RelativePath> CommonFiles,
     IReadOnlyList<RelativePath> ExtraFiles,
-    IReadOnlyList<RelativePath> TopLevelExtraDirectories
-);
+    IReadOnlyList<RelativePath> TopLevelExtraDirectories);

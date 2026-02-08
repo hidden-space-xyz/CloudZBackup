@@ -1,178 +1,62 @@
+namespace CloudZBackup.Tests.Unit.Infrastructure;
+
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
 using CloudZBackup.Infrastructure.Services;
 
-namespace CloudZBackup.Tests.Unit.Infrastructure;
-
+/// <summary>
+/// Unit tests for <see cref="FileSystemService"/> using real temporary directories.
+/// </summary>
 [TestFixture]
 public sealed class FileSystemServiceTests
 {
-    private FileSystemService _sut = null!;
-    private string _testRoot = null!;
+    private FileSystemService sut = null!;
+    private string testRoot = null!;
 
-    [SetUp]
-    public void SetUp()
-    {
-        _sut = new FileSystemService();
-        _testRoot = Path.Combine(
-            Path.GetTempPath(),
-            "CloudZBackupFsTests",
-            Guid.NewGuid().ToString("N")
-        );
-        Directory.CreateDirectory(_testRoot);
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        if (Directory.Exists(_testRoot))
-            Directory.Delete(_testRoot, recursive: true);
-    }
-
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.Combine"/> produces the correct absolute path.
+    /// </summary>
     [Test]
-    public void Combine_ProducesCorrectPath()
+    public void CombineProducesCorrectPath()
     {
         var rel = new RelativePath("sub/file.txt");
-        string result = _sut.Combine(_testRoot, rel);
+        string result = this.sut.Combine(this.testRoot, rel);
 
-        Assert.That(result, Is.EqualTo(Path.Combine(_testRoot, "sub", "file.txt")));
+        Assert.That(result, Is.EqualTo(Path.Combine(this.testRoot, "sub", "file.txt")));
     }
 
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.CopyFileAsync"/> copies file content correctly.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public void CreateDirectory_CreatesTheDirectory()
+    public async Task CopyFileAsyncCopiesContentCorrectly()
     {
-        string dir = Path.Combine(_testRoot, "newdir");
+        string src = Path.Combine(this.testRoot, "source.txt");
+        string dst = Path.Combine(this.testRoot, "dest.txt");
+        await File.WriteAllTextAsync(src, "copy this");
 
-        _sut.CreateDirectory(dir);
+        await this.sut.CopyFileAsync(src, dst, overwrite: false, null, CancellationToken.None);
 
-        Assert.That(Directory.Exists(dir), Is.True);
+        Assert.That(await File.ReadAllTextAsync(dst), Is.EqualTo("copy this"));
     }
 
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.CopyFileAsync"/> successfully copies a file
+    /// when a last-write time is specified.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public void DirectoryExists_ReturnsTrueForExisting()
+    public async Task CopyFileAsyncWithLastWriteTimeCopiesFileSuccessfully()
     {
-        Assert.That(_sut.DirectoryExists(_testRoot), Is.True);
-    }
-
-    [Test]
-    public void DirectoryExists_ReturnsFalseForNonExisting()
-    {
-        Assert.That(_sut.DirectoryExists(Path.Combine(_testRoot, "nope")), Is.False);
-    }
-
-    [Test]
-    public void DeleteFileIfExists_DeletesFile()
-    {
-        string file = Path.Combine(_testRoot, "delete_me.txt");
-        File.WriteAllText(file, "data");
-
-        _sut.DeleteFileIfExists(file);
-
-        Assert.That(File.Exists(file), Is.False);
-    }
-
-    [Test]
-    public void DeleteDirectoryIfExists_DeletesRecursively()
-    {
-        string dir = Path.Combine(_testRoot, "deldir");
-        Directory.CreateDirectory(dir);
-        File.WriteAllText(Path.Combine(dir, "child.txt"), "data");
-
-        _sut.DeleteDirectoryIfExists(dir, recursive: true);
-
-        Assert.That(Directory.Exists(dir), Is.False);
-    }
-
-    [Test]
-    public void EnsureSourceExists_ThrowsForMissingDirectory()
-    {
-        Assert.Throws<DirectoryNotFoundException>(() =>
-            _sut.EnsureSourceExists(Path.Combine(_testRoot, "missing"))
-        );
-    }
-
-    [Test]
-    public void EnsureSourceExists_DoesNotThrowForExistingDirectory()
-    {
-        Assert.DoesNotThrow(() => _sut.EnsureSourceExists(_testRoot));
-    }
-
-    [Test]
-    public void GetFileMetadata_ReturnsCorrectMetadata()
-    {
-        string file = Path.Combine(_testRoot, "meta.txt");
-        File.WriteAllText(file, "hello world");
-
-        FileMetadata meta = _sut.GetFileMetadata(file);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(meta.Length, Is.GreaterThan(0));
-            Assert.That(meta.LastWriteTimeUtc, Is.Not.EqualTo(default(DateTime)));
-        });
-    }
-
-    [Test]
-    public void EnumerateFilesRecursive_FindsAllFiles()
-    {
-        File.WriteAllText(Path.Combine(_testRoot, "a.txt"), "a");
-        string sub = Path.Combine(_testRoot, "sub");
-        Directory.CreateDirectory(sub);
-        File.WriteAllText(Path.Combine(sub, "b.txt"), "b");
-
-        var files = _sut.EnumerateFilesRecursive(_testRoot).ToList();
-
-        Assert.That(files, Has.Count.EqualTo(2));
-    }
-
-    [Test]
-    public void EnumerateDirectoriesRecursive_FindsAllDirectories()
-    {
-        string sub = Path.Combine(_testRoot, "sub");
-        string nested = Path.Combine(sub, "nested");
-        Directory.CreateDirectory(nested);
-
-        var dirs = _sut.EnumerateDirectoriesRecursive(_testRoot).ToList();
-
-        Assert.That(dirs, Has.Count.EqualTo(2));
-    }
-
-    [Test]
-    public async Task CopyFileAsync_CopiesContentCorrectly()
-    {
-        string src = Path.Combine(_testRoot, "source.txt");
-        string dst = Path.Combine(_testRoot, "dest.txt");
-        File.WriteAllText(src, "copy this");
-
-        await _sut.CopyFileAsync(src, dst, overwrite: false, null, CancellationToken.None);
-
-        Assert.That(File.ReadAllText(dst), Is.EqualTo("copy this"));
-    }
-
-    [Test]
-    public async Task CopyFileAsync_WithOverwrite_OverwritesExistingFile()
-    {
-        string src = Path.Combine(_testRoot, "source.txt");
-        string dst = Path.Combine(_testRoot, "dest.txt");
-        File.WriteAllText(src, "new content");
-        File.WriteAllText(dst, "old content");
-
-        await _sut.CopyFileAsync(src, dst, overwrite: true, null, CancellationToken.None);
-
-        Assert.That(File.ReadAllText(dst), Is.EqualTo("new content"));
-    }
-
-    [Test]
-    public async Task CopyFileAsync_WithLastWriteTime_CopiesFileSuccessfully()
-    {
-        string src = Path.Combine(_testRoot, "source.txt");
-        string dst = Path.Combine(_testRoot, "dest.txt");
-        File.WriteAllText(src, "timed");
+        string src = Path.Combine(this.testRoot, "source.txt");
+        string dst = Path.Combine(this.testRoot, "dest.txt");
+        await File.WriteAllTextAsync(src, "timed");
 
         var expectedTime = new DateTime(2023, 3, 15, 10, 0, 0, DateTimeKind.Utc);
 
-        await _sut.CopyFileAsync(src, dst, overwrite: false, expectedTime, CancellationToken.None);
+        await this.sut.CopyFileAsync(src, dst, overwrite: false, expectedTime, CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -181,55 +65,174 @@ public sealed class FileSystemServiceTests
         });
     }
 
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.CopyFileAsync"/> overwrites an existing file
+    /// when the overwrite flag is set.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public void ValidateAndNormalize_ThrowsForEmptySource()
+    public async Task CopyFileAsyncWithOverwriteOverwritesExistingFile()
     {
-        var request = new BackupRequest("", "/dest", BackupMode.Sync);
+        string src = Path.Combine(this.testRoot, "source.txt");
+        string dst = Path.Combine(this.testRoot, "dest.txt");
+        await File.WriteAllTextAsync(src, "new content");
+        await File.WriteAllTextAsync(dst, "old content");
 
-        Assert.Throws<ArgumentException>(() => _sut.ValidateAndNormalize(request));
+        await this.sut.CopyFileAsync(src, dst, overwrite: true, null, CancellationToken.None);
+
+        Assert.That(await File.ReadAllTextAsync(dst), Is.EqualTo("new content"));
     }
 
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.CreateDirectory"/> creates the specified directory.
+    /// </summary>
     [Test]
-    public void ValidateAndNormalize_ThrowsForEmptyDestination()
+    public void CreateDirectoryCreatesTheDirectory()
     {
-        var request = new BackupRequest("/source", "", BackupMode.Sync);
+        string dir = Path.Combine(this.testRoot, "newdir");
 
-        Assert.Throws<ArgumentException>(() => _sut.ValidateAndNormalize(request));
+        this.sut.CreateDirectory(dir);
+
+        Assert.That(Directory.Exists(dir), Is.True);
     }
 
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.DeleteDirectoryIfExists"/> deletes the directory
+    /// and all of its contents recursively.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public void ValidateNoOverlap_ThrowsWhenDestInsideSource()
+    public async Task DeleteDirectoryIfExistsDeletesRecursively()
     {
-        string source = Path.Combine(_testRoot, "parent");
-        string dest = Path.Combine(source, "child");
+        string dir = Path.Combine(this.testRoot, "deldir");
+        Directory.CreateDirectory(dir);
+        await File.WriteAllTextAsync(Path.Combine(dir, "child.txt"), "data");
 
-        Assert.Throws<InvalidOperationException>(() => _sut.ValidateNoOverlap(source, dest));
+        this.sut.DeleteDirectoryIfExists(dir, recursive: true);
+
+        Assert.That(Directory.Exists(dir), Is.False);
     }
 
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.DeleteFileIfExists"/> deletes the specified file.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public void ValidateNoOverlap_ThrowsWhenSourceInsideDest()
+    public async Task DeleteFileIfExistsDeletesFile()
     {
-        string dest = Path.Combine(_testRoot, "parent");
-        string source = Path.Combine(dest, "child");
+        string file = Path.Combine(this.testRoot, "delete_me.txt");
+        await File.WriteAllTextAsync(file, "data");
 
-        Assert.Throws<InvalidOperationException>(() => _sut.ValidateNoOverlap(source, dest));
+        this.sut.DeleteFileIfExists(file);
+
+        Assert.That(File.Exists(file), Is.False);
     }
 
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.DirectoryExists"/> returns <see langword="false"/>
+    /// for a non-existing directory.
+    /// </summary>
     [Test]
-    public void ValidateNoOverlap_DoesNotThrowForSiblingDirectories()
+    public void DirectoryExistsReturnsFalseForNonExisting()
     {
-        string source = Path.Combine(_testRoot, "dirA");
-        string dest = Path.Combine(_testRoot, "dirB");
-
-        Assert.DoesNotThrow(() => _sut.ValidateNoOverlap(source, dest));
+        Assert.That(this.sut.DirectoryExists(Path.Combine(this.testRoot, "nope")), Is.False);
     }
 
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.DirectoryExists"/> returns <see langword="true"/>
+    /// for an existing directory.
+    /// </summary>
     [Test]
-    public void PrepareDestination_SyncMode_CreatesDestIfNotExists()
+    public void DirectoryExistsReturnsTrueForExisting()
     {
-        string dest = Path.Combine(_testRoot, "newdest");
+        Assert.That(this.sut.DirectoryExists(this.testRoot), Is.True);
+    }
 
-        bool created = _sut.PrepareDestination(BackupMode.Sync, dest);
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.EnsureSourceExists"/> does not throw
+    /// when the directory exists.
+    /// </summary>
+    [Test]
+    public void EnsureSourceExistsDoesNotThrowForExistingDirectory()
+    {
+        Assert.DoesNotThrow(() => this.sut.EnsureSourceExists(this.testRoot));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.EnsureSourceExists"/> throws
+    /// <see cref="DirectoryNotFoundException"/> for a missing directory.
+    /// </summary>
+    [Test]
+    public void EnsureSourceExistsThrowsForMissingDirectory()
+    {
+        Assert.Throws<DirectoryNotFoundException>(() =>
+            this.sut.EnsureSourceExists(Path.Combine(this.testRoot, "missing")));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.EnumerateDirectoriesRecursive"/>
+    /// discovers all nested subdirectories.
+    /// </summary>
+    [Test]
+    public void EnumerateDirectoriesRecursiveFindsAllDirectories()
+    {
+        string sub = Path.Combine(this.testRoot, "sub");
+        string nested = Path.Combine(sub, "nested");
+        Directory.CreateDirectory(nested);
+
+        var dirs = this.sut.EnumerateDirectoriesRecursive(this.testRoot).ToList();
+
+        Assert.That(dirs, Has.Count.EqualTo(2));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.EnumerateFilesRecursive"/>
+    /// discovers all files including those in subdirectories.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
+    [Test]
+    public async Task EnumerateFilesRecursiveFindsAllFiles()
+    {
+        await File.WriteAllTextAsync(Path.Combine(this.testRoot, "a.txt"), "a");
+        string sub = Path.Combine(this.testRoot, "sub");
+        Directory.CreateDirectory(sub);
+        await File.WriteAllTextAsync(Path.Combine(sub, "b.txt"), "b");
+
+        var files = this.sut.EnumerateFilesRecursive(this.testRoot).ToList();
+
+        Assert.That(files, Has.Count.EqualTo(2));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.GetFileMetadata"/> returns valid metadata
+    /// with a non-zero length and a non-default last-write time.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
+    [Test]
+    public async Task GetFileMetadataReturnsCorrectMetadata()
+    {
+        string file = Path.Combine(this.testRoot, "meta.txt");
+        await File.WriteAllTextAsync(file, "hello world");
+
+        FileMetadata meta = this.sut.GetFileMetadata(file);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(meta.Length, Is.GreaterThan(0));
+            Assert.That(meta.LastWriteTimeUtc, Is.Not.EqualTo(default(DateTime)));
+        });
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.PrepareDestination"/> in sync mode creates
+    /// the destination directory when it does not exist.
+    /// </summary>
+    [Test]
+    public void PrepareDestinationSyncModeCreatesDestIfNotExists()
+    {
+        string dest = Path.Combine(this.testRoot, "newdest");
+
+        bool created = this.sut.PrepareDestination(BackupMode.Sync, dest);
 
         Assert.Multiple(() =>
         {
@@ -238,11 +241,104 @@ public sealed class FileSystemServiceTests
         });
     }
 
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.PrepareDestination"/> in sync mode returns
+    /// <see langword="false"/> when the destination directory already exists.
+    /// </summary>
     [Test]
-    public void PrepareDestination_SyncMode_ReturnsFalseIfExists()
+    public void PrepareDestinationSyncModeReturnsFalseIfExists()
     {
-        bool created = _sut.PrepareDestination(BackupMode.Sync, _testRoot);
+        bool created = this.sut.PrepareDestination(BackupMode.Sync, this.testRoot);
 
         Assert.That(created, Is.False);
+    }
+
+    /// <summary>
+    /// Initializes the service under test and creates a unique temporary directory.
+    /// </summary>
+    [SetUp]
+    public void SetUp()
+    {
+        this.sut = new FileSystemService();
+        this.testRoot = Path.Combine(
+            Path.GetTempPath(),
+            "CloudZBackupFsTests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(this.testRoot);
+    }
+
+    /// <summary>
+    /// Cleans up the temporary directory after each test.
+    /// </summary>
+    [TearDown]
+    public void TearDown()
+    {
+        if (Directory.Exists(this.testRoot))
+        {
+            Directory.Delete(this.testRoot, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.ValidateAndNormalize"/> throws
+    /// <see cref="ArgumentException"/> when the destination path is empty.
+    /// </summary>
+    [Test]
+    public void ValidateAndNormalizeThrowsForEmptyDestination()
+    {
+        var request = new BackupRequest("/source", string.Empty, BackupMode.Sync);
+
+        Assert.Throws<ArgumentException>(() => this.sut.ValidateAndNormalize(request));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.ValidateAndNormalize"/> throws
+    /// <see cref="ArgumentException"/> when the source path is empty.
+    /// </summary>
+    [Test]
+    public void ValidateAndNormalizeThrowsForEmptySource()
+    {
+        var request = new BackupRequest(string.Empty, "/dest", BackupMode.Sync);
+
+        Assert.Throws<ArgumentException>(() => this.sut.ValidateAndNormalize(request));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.ValidateNoOverlap"/> does not throw
+    /// when source and destination are sibling directories.
+    /// </summary>
+    [Test]
+    public void ValidateNoOverlapDoesNotThrowForSiblingDirectories()
+    {
+        string source = Path.Combine(this.testRoot, "dirA");
+        string dest = Path.Combine(this.testRoot, "dirB");
+
+        Assert.DoesNotThrow(() => this.sut.ValidateNoOverlap(source, dest));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.ValidateNoOverlap"/> throws
+    /// <see cref="InvalidOperationException"/> when the destination is inside the source.
+    /// </summary>
+    [Test]
+    public void ValidateNoOverlapThrowsWhenDestInsideSource()
+    {
+        string source = Path.Combine(this.testRoot, "parent");
+        string dest = Path.Combine(source, "child");
+
+        Assert.Throws<InvalidOperationException>(() => this.sut.ValidateNoOverlap(source, dest));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="FileSystemService.ValidateNoOverlap"/> throws
+    /// <see cref="InvalidOperationException"/> when the source is inside the destination.
+    /// </summary>
+    [Test]
+    public void ValidateNoOverlapThrowsWhenSourceInsideDest()
+    {
+        string dest = Path.Combine(this.testRoot, "parent");
+        string source = Path.Combine(dest, "child");
+
+        Assert.Throws<InvalidOperationException>(() => this.sut.ValidateNoOverlap(source, dest));
     }
 }

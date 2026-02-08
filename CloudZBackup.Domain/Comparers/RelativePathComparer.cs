@@ -1,6 +1,6 @@
-using CloudZBackup.Domain.ValueObjects;
-
 namespace CloudZBackup.Domain.Comparers;
+
+using CloudZBackup.Domain.ValueObjects;
 
 /// <summary>
 /// Provides equality comparison for <see cref="RelativePath"/> instances,
@@ -12,19 +12,19 @@ namespace CloudZBackup.Domain.Comparers;
 /// </param>
 public sealed class RelativePathComparer(bool ignoreCase) : IEqualityComparer<RelativePath>
 {
-    private readonly StringComparer _comparer = ignoreCase
+    private readonly StringComparer comparer = ignoreCase
         ? StringComparer.OrdinalIgnoreCase
         : StringComparer.Ordinal;
 
     /// <inheritdoc />
     public bool Equals(RelativePath x, RelativePath y)
     {
-        return _comparer.Equals(x.Value, y.Value);
+        return this.comparer.Equals(x.Value, y.Value);
     }
 
     /// <inheritdoc />
     public int GetHashCode(RelativePath obj)
     {
-        return _comparer.GetHashCode(obj.Value);
+        return this.comparer.GetHashCode(obj.Value);
     }
 }

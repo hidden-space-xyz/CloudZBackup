@@ -1,11 +1,11 @@
-﻿using CloudZBackup.Application.Orchestrators;
+﻿namespace CloudZBackup.Composition;
+
+using CloudZBackup.Application.Orchestrators;
 using CloudZBackup.Application.Orchestrators.Interfaces;
 using CloudZBackup.Application.Services;
 using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
-
-namespace CloudZBackup.Composition;
 
 /// <summary>
 /// Provides extension methods to register application and infrastructure services

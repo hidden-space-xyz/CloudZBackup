@@ -1,11 +1,11 @@
+namespace CloudZBackup.Terminal;
+
 using System.Diagnostics;
 using System.Text;
 using CloudZBackup.Application.Orchestrators.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using Microsoft.Extensions.Logging;
-
-namespace CloudZBackup.Terminal;
 
 /// <summary>
 /// Provides the interactive terminal user interface for CloudZBackup,
@@ -15,9 +15,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
 {
     private const int BarWidth = 30;
     private const int ProgressRenderIntervalMs = 80;
-    private readonly object _progressLock = new();
-    private long _lastProgressTimestamp;
-    private volatile bool _progressEnabled;
+    private readonly Lock progressLock = new();
+    private long lastProgressTimestamp;
+    private volatile bool progressEnabled;
 
     /// <summary>
     /// Entry point that parses command-line arguments (or prompts interactively),
@@ -25,6 +25,7 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     /// </summary>
     /// <param name="args">Command-line arguments (<c>--source</c>, <c>--dest</c>, <c>--mode</c>).</param>
     /// <param name="cancellationToken">A token to observe for cancellation requests.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public async Task RunAsync(string[] args, CancellationToken cancellationToken)
     {
         Console.InputEncoding = Encoding.UTF8;
@@ -58,43 +59,88 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
             PrintSection("Progress");
             var stopwatch = Stopwatch.StartNew();
 
-            _progressEnabled = true;
-            var progress = new Progress<BackupProgress>(RenderProgressBar);
+            this.progressEnabled = true;
+            var progress = new Progress<BackupProgress>(this.RenderProgressBar);
 
             BackupResult result = await useCase.ExecuteAsync(request, progress, cancellationToken);
 
             stopwatch.Stop();
 
-            lock (_progressLock)
+            lock (this.progressLock)
             {
-                _progressEnabled = false;
+                this.progressEnabled = false;
                 ClearProgressBar();
                 PrintResultsSummary(result, stopwatch.Elapsed);
             }
         }
         catch (OperationCanceledException)
         {
-            lock (_progressLock)
+            lock (this.progressLock)
             {
-                _progressEnabled = false;
+                this.progressEnabled = false;
                 ClearProgressBar();
                 Console.WriteLine();
                 PrintWarning("Operation canceled by user.");
             }
+
             Environment.ExitCode = 130;
         }
         catch (Exception ex)
         {
-            lock (_progressLock)
+            lock (this.progressLock)
             {
-                _progressEnabled = false;
+                this.progressEnabled = false;
                 ClearProgressBar();
                 Console.WriteLine();
                 PrintError(ex.Message);
             }
+
             logger.LogError(ex, "Backup failed.");
             Environment.ExitCode = 1;
         }
+    }
+
+    /// <summary>
+    /// Clears the current progress bar line from the console.
+    /// </summary>
+    private static void ClearProgressBar()
+    {
+        try
+        {
+            int width = Console.BufferWidth;
+            Console.Write('\r');
+            Console.Write(new string(' ', Math.Max(0, width - 1)));
+            Console.Write('\r');
+            Console.WriteLine();
+        }
+        catch
+        {
+            Console.WriteLine();
+        }
+    }
+
+    /// <summary>
+    /// Formats a <see cref="TimeSpan"/> into a human-readable short string.
+    /// </summary>
+    private static string FormatElapsed(TimeSpan ts) =>
+        ts.TotalSeconds < 1 ? $"{ts.TotalMilliseconds:F0} ms"
+        : ts.TotalMinutes < 1 ? $"{ts.TotalSeconds:F1} s"
+        : $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
+
+    /// <summary>
+    /// Retrieves the value associated with a command-line argument key, or <see langword="null"/> if not found.
+    /// </summary>
+    private static string? GetArgValue(string[] args, string key)
+    {
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (string.Equals(args[i], key, StringComparison.OrdinalIgnoreCase))
+            {
+                return args[i + 1];
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -114,11 +160,14 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     }
 
     /// <summary>
-    /// Prints a section header line to the console.
+    /// Prints an error message in red to the console.
     /// </summary>
-    private static void PrintSection(string title)
+    private static void PrintError(string message)
     {
-        WriteColored($"   ── {title} ─────────────────────────────────", ConsoleColor.DarkCyan);
+        Console.WriteLine();
+        Console.Write("   ");
+        WriteColored($"✖ Error: {message}", ConsoleColor.Red);
+        Console.WriteLine();
     }
 
     /// <summary>
@@ -127,7 +176,7 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     private static void PrintKeyValue(string key, string value)
     {
         Console.Write("     ");
-        WriteColored($"{key, -14}", ConsoleColor.Gray, false);
+        WriteColored($"{key,-14}", ConsoleColor.Gray, false);
         WriteColored(value, ConsoleColor.White);
     }
 
@@ -168,31 +217,27 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     }
 
     /// <summary>
+    /// Prints a section header line to the console.
+    /// </summary>
+    private static void PrintSection(string title)
+    {
+        WriteColored($"   ── {title} ─────────────────────────────────", ConsoleColor.DarkCyan);
+    }
+
+    /// <summary>
     /// Prints a single row of the results summary table.
     /// </summary>
     private static void PrintTableRow(
         string label,
         int value,
-        ConsoleColor valueColor = ConsoleColor.White
-    )
+        ConsoleColor valueColor = ConsoleColor.White)
     {
         Console.Write("     ");
         WriteColored("│ ", ConsoleColor.DarkGray, false);
-        WriteColored($"{label, -20}", ConsoleColor.Gray, false);
+        WriteColored($"{label,-20}", ConsoleColor.Gray, false);
         WriteColored(" │ ", ConsoleColor.DarkGray, false);
-        WriteColored($"{value, 6}", valueColor, false);
+        WriteColored($"{value,6}", valueColor, false);
         WriteColored(" │", ConsoleColor.DarkGray);
-    }
-
-    /// <summary>
-    /// Prints an error message in red to the console.
-    /// </summary>
-    private static void PrintError(string message)
-    {
-        Console.WriteLine();
-        Console.Write("   ");
-        WriteColored($"✖ Error: {message}", ConsoleColor.Red);
-        Console.WriteLine();
     }
 
     /// <summary>
@@ -203,136 +248,6 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         Console.Write("   ");
         WriteColored($"⚠ {message}", ConsoleColor.Yellow);
         Console.WriteLine();
-    }
-
-    /// <summary>
-    /// Renders an inline progress bar on the current console line, throttled to avoid excessive redraws.
-    /// </summary>
-    private void RenderProgressBar(BackupProgress p)
-    {
-        lock (_progressLock)
-        {
-            if (!_progressEnabled)
-                return;
-
-            long now = Stopwatch.GetTimestamp();
-            if (p.ProcessedItems < p.TotalItems && _lastProgressTimestamp != 0)
-            {
-                double elapsedMs = (now - _lastProgressTimestamp) * 1000.0 / Stopwatch.Frequency;
-                if (elapsedMs < ProgressRenderIntervalMs)
-                    return;
-            }
-
-            _lastProgressTimestamp = now;
-
-            if (p.TotalItems <= 0)
-            {
-                Console.Write("\r     ");
-                WriteColored($"… {p.Phase}", ConsoleColor.DarkYellow, false);
-                try
-                {
-                    int written = 6 + $"… {p.Phase}".Length;
-                    if (written < Console.WindowWidth)
-                        Console.Write(new string(' ', Console.WindowWidth - written - 1));
-                }
-                catch
-                {
-                    // Ignore
-                }
-                return;
-            }
-
-            double ratio = (double)p.ProcessedItems / p.TotalItems;
-            int filled = (int)(ratio * BarWidth);
-            int empty = BarWidth - filled;
-            int percent = (int)(ratio * 100);
-
-            ConsoleColor barColor = percent switch
-            {
-                < 33 => ConsoleColor.Red,
-                < 66 => ConsoleColor.Yellow,
-                _ => ConsoleColor.Green,
-            };
-
-            Console.Write("\r     ");
-            WriteColored("[", ConsoleColor.DarkGray, false);
-            WriteColored(new string('█', filled), barColor, false);
-            WriteColored(new string('░', empty), ConsoleColor.DarkGray, false);
-            WriteColored("]", ConsoleColor.DarkGray, false);
-            WriteColored($" {percent, 3}%", ConsoleColor.White, false);
-            WriteColored($" ({p.ProcessedItems}/{p.TotalItems})", ConsoleColor.Gray, false);
-            WriteColored($" {p.Phase}", ConsoleColor.DarkYellow, false);
-
-            try
-            {
-                int written =
-                    7
-                    + BarWidth
-                    + 6
-                    + $" ({p.ProcessedItems}/{p.TotalItems})".Length
-                    + $" {p.Phase}".Length;
-                if (written < Console.WindowWidth)
-                    Console.Write(new string(' ', Console.WindowWidth - written - 1));
-            }
-            catch
-            {
-                // Ignore
-            }
-        }
-    }
-
-    /// <summary>
-    /// Clears the current progress bar line from the console.
-    /// </summary>
-    private static void ClearProgressBar()
-    {
-        try
-        {
-            int width = Console.BufferWidth;
-            Console.Write('\r');
-            Console.Write(new string(' ', Math.Max(0, width - 1)));
-            Console.Write('\r');
-            Console.WriteLine();
-        }
-        catch
-        {
-            Console.WriteLine();
-        }
-    }
-
-    /// <summary>
-    /// Writes text to the console in the specified foreground color.
-    /// </summary>
-    private static void WriteColored(string text, ConsoleColor color, bool newLine = true)
-    {
-        ConsoleColor previous = Console.ForegroundColor;
-        Console.ForegroundColor = color;
-        if (newLine)
-            Console.WriteLine(text);
-        else
-            Console.Write(text);
-        Console.ForegroundColor = previous;
-    }
-
-    /// <summary>
-    /// Formats a <see cref="TimeSpan"/> into a human-readable short string.
-    /// </summary>
-    private static string FormatElapsed(TimeSpan ts) =>
-        ts.TotalSeconds < 1 ? $"{ts.TotalMilliseconds:F0} ms"
-        : ts.TotalMinutes < 1 ? $"{ts.TotalSeconds:F1} s"
-        : $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
-
-    /// <summary>
-    /// Retrieves the value associated with a command-line argument key, or <see langword="null"/> if not found.
-    /// </summary>
-    private static string? GetArgValue(string[] args, string key)
-    {
-        for (int i = 0; i < args.Length - 1; i++)
-        {
-            if (string.Equals(args[i], key, StringComparison.OrdinalIgnoreCase))
-                return args[i + 1];
-        }
-        return null;
     }
 
     /// <summary>
@@ -369,6 +284,110 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
             default:
                 mode = default;
                 return false;
+        }
+    }
+
+    /// <summary>
+    /// Writes text to the console in the specified foreground color.
+    /// </summary>
+    private static void WriteColored(string text, ConsoleColor color, bool newLine = true)
+    {
+        ConsoleColor previous = Console.ForegroundColor;
+        Console.ForegroundColor = color;
+        if (newLine)
+        {
+            Console.WriteLine(text);
+        }
+        else
+        {
+            Console.Write(text);
+        }
+
+        Console.ForegroundColor = previous;
+    }
+
+    /// <summary>
+    /// Renders an inline progress bar on the current console line, throttled to avoid excessive redraws.
+    /// </summary>
+    private void RenderProgressBar(BackupProgress p)
+    {
+        lock (this.progressLock)
+        {
+            if (!this.progressEnabled)
+            {
+                return;
+            }
+
+            long now = Stopwatch.GetTimestamp();
+            if (p.ProcessedItems < p.TotalItems && this.lastProgressTimestamp != 0)
+            {
+                double elapsedMs = (now - this.lastProgressTimestamp) * 1000.0 / Stopwatch.Frequency;
+                if (elapsedMs < ProgressRenderIntervalMs)
+                {
+                    return;
+                }
+            }
+
+            this.lastProgressTimestamp = now;
+
+            if (p.TotalItems <= 0)
+            {
+                Console.Write("\r     ");
+                WriteColored($"… {p.Phase}", ConsoleColor.DarkYellow, false);
+                try
+                {
+                    int written = 6 + $"… {p.Phase}".Length;
+                    if (written < Console.WindowWidth)
+                    {
+                        Console.Write(new string(' ', Console.WindowWidth - written - 1));
+                    }
+                }
+                catch
+                {
+                    // Ignore
+                }
+
+                return;
+            }
+
+            double ratio = (double)p.ProcessedItems / p.TotalItems;
+            int filled = (int)(ratio * BarWidth);
+            int empty = BarWidth - filled;
+            int percent = (int)(ratio * 100);
+
+            ConsoleColor barColor = percent switch
+            {
+                < 33 => ConsoleColor.Red,
+                < 66 => ConsoleColor.Yellow,
+                _ => ConsoleColor.Green,
+            };
+
+            Console.Write("\r     ");
+            WriteColored("[", ConsoleColor.DarkGray, false);
+            WriteColored(new string('█', filled), barColor, false);
+            WriteColored(new string('░', empty), ConsoleColor.DarkGray, false);
+            WriteColored("]", ConsoleColor.DarkGray, false);
+            WriteColored($" {percent,3}%", ConsoleColor.White, false);
+            WriteColored($" ({p.ProcessedItems}/{p.TotalItems})", ConsoleColor.Gray, false);
+            WriteColored($" {p.Phase}", ConsoleColor.DarkYellow, false);
+
+            try
+            {
+                int written =
+                    7
+                    + BarWidth
+                    + 6
+                    + $" ({p.ProcessedItems}/{p.TotalItems})".Length
+                    + $" {p.Phase}".Length;
+                if (written < Console.WindowWidth)
+                {
+                    Console.Write(new string(' ', Console.WindowWidth - written - 1));
+                }
+            }
+            catch
+            {
+                // Ignore
+            }
         }
     }
 }

@@ -1,16 +1,24 @@
-﻿using CloudZBackup.Application.Services.Interfaces;
+﻿namespace CloudZBackup.Infrastructure.Services;
+
+using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
-
-namespace CloudZBackup.Infrastructure.Services;
 
 /// <summary>
 /// Concrete implementation of <see cref="IFileSystemService"/> backed by the local file system.
 /// </summary>
 public sealed class FileSystemService : IFileSystemService
 {
-    private readonly StringComparison _pathComparison = OperatingSystem.IsWindows()
+    private static readonly EnumerationOptions EnumerationOptions = new()
+    {
+        RecurseSubdirectories = true,
+        IgnoreInaccessible = true,
+        AttributesToSkip = FileAttributes.System,
+        ReturnSpecialDirectories = false,
+    };
+
+    private readonly StringComparison pathComparison = OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase
         : StringComparison.Ordinal;
 
@@ -26,13 +34,14 @@ public sealed class FileSystemService : IFileSystemService
         string destinationFile,
         bool overwrite,
         DateTime? lastWriteTimeUtc,
-        CancellationToken cancellationToken
-    )
+        CancellationToken cancellationToken)
     {
         string? destDir = Path.GetDirectoryName(destinationFile);
 
         if (!string.IsNullOrWhiteSpace(destDir))
+        {
             Directory.CreateDirectory(destDir);
+        }
 
         FileMode destMode = overwrite ? FileMode.Create : FileMode.CreateNew;
 
@@ -42,8 +51,7 @@ public sealed class FileSystemService : IFileSystemService
             FileAccess.Read,
             FileShare.Read,
             bufferSize: 1024 * 1024,
-            options: FileOptions.SequentialScan | FileOptions.Asynchronous
-        );
+            options: FileOptions.SequentialScan | FileOptions.Asynchronous);
 
         await using FileStream dest = new(
             destinationFile,
@@ -51,13 +59,14 @@ public sealed class FileSystemService : IFileSystemService
             FileAccess.Write,
             FileShare.None,
             bufferSize: 1024 * 1024,
-            options: FileOptions.SequentialScan | FileOptions.Asynchronous
-        );
+            options: FileOptions.SequentialScan | FileOptions.Asynchronous);
 
         await source.CopyToAsync(dest, cancellationToken);
 
         if (lastWriteTimeUtc.HasValue)
+        {
             File.SetLastWriteTimeUtc(destinationFile, lastWriteTimeUtc.Value);
+        }
     }
 
     /// <inheritdoc />
@@ -70,7 +79,9 @@ public sealed class FileSystemService : IFileSystemService
     public void DeleteDirectoryIfExists(string directoryPath, bool recursive)
     {
         if (Directory.Exists(directoryPath))
+        {
             Directory.Delete(directoryPath, recursive);
+        }
     }
 
     /// <inheritdoc />
@@ -88,28 +99,22 @@ public sealed class FileSystemService : IFileSystemService
     /// <inheritdoc />
     public void EnsureSourceExists(string sourceRoot)
     {
-        if (!DirectoryExists(sourceRoot))
+        if (!this.DirectoryExists(sourceRoot))
+        {
             throw new DirectoryNotFoundException($"Source directory not found: '{sourceRoot}'.");
+        }
     }
-
-    private static readonly EnumerationOptions s_enumerationOptions = new()
-    {
-        RecurseSubdirectories = true,
-        IgnoreInaccessible = true,
-        AttributesToSkip = FileAttributes.System,
-        ReturnSpecialDirectories = false,
-    };
 
     /// <inheritdoc />
     public IEnumerable<string> EnumerateDirectoriesRecursive(string rootPath)
     {
-        return Directory.EnumerateDirectories(rootPath, "*", s_enumerationOptions);
+        return Directory.EnumerateDirectories(rootPath, "*", EnumerationOptions);
     }
 
     /// <inheritdoc />
     public IEnumerable<string> EnumerateFilesRecursive(string rootPath)
     {
-        return Directory.EnumerateFiles(rootPath, "*", s_enumerationOptions);
+        return Directory.EnumerateFiles(rootPath, "*", EnumerationOptions);
     }
 
     /// <inheritdoc />
@@ -122,13 +127,13 @@ public sealed class FileSystemService : IFileSystemService
     /// <inheritdoc />
     public bool PrepareDestination(BackupMode mode, string destRoot)
     {
-        bool destExists = DirectoryExists(destRoot);
+        bool destExists = this.DirectoryExists(destRoot);
 
         if (mode is BackupMode.Sync or BackupMode.Add)
         {
             if (!destExists)
             {
-                CreateDirectory(destRoot);
+                this.CreateDirectory(destRoot);
                 return true;
             }
 
@@ -139,7 +144,7 @@ public sealed class FileSystemService : IFileSystemService
     }
 
     /// <inheritdoc />
-    public (string sourceRoot, string destRoot) ValidateAndNormalize(BackupRequest request)
+    public (string SourceRoot, string DestRoot) ValidateAndNormalize(BackupRequest request)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SourcePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.DestinationPath);
@@ -156,15 +161,17 @@ public sealed class FileSystemService : IFileSystemService
         string src = EnsureTrailingSeparator(sourceRoot);
         string dst = EnsureTrailingSeparator(destRoot);
 
-        if (dst.StartsWith(src, _pathComparison))
+        if (dst.StartsWith(src, this.pathComparison))
+        {
             throw new InvalidOperationException(
-                "Destination cannot be located inside the source directory."
-            );
+                "Destination cannot be located inside the source directory.");
+        }
 
-        if (src.StartsWith(dst, _pathComparison))
+        if (src.StartsWith(dst, this.pathComparison))
+        {
             throw new InvalidOperationException(
-                "Source cannot be located inside the destination directory."
-            );
+                "Source cannot be located inside the destination directory.");
+        }
     }
 
     /// <summary>

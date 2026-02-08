@@ -7,5 +7,4 @@
 /// <param name="Directories">A set of all relative directory paths found in the tree.</param>
 public sealed record Snapshot(
     IReadOnlyDictionary<RelativePath, FileEntry> Files,
-    IReadOnlySet<RelativePath> Directories
-);
+    IReadOnlySet<RelativePath> Directories);

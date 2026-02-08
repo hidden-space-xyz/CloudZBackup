@@ -1,9 +1,9 @@
-﻿using CloudZBackup.Application.Services.Interfaces;
+﻿namespace CloudZBackup.Application.Services;
+
+using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Comparers;
 using CloudZBackup.Domain.ValueObjects;
-
-namespace CloudZBackup.Application.Services;
 
 /// <summary>
 /// Captures directory-tree snapshots by enumerating files and directories through
@@ -11,25 +11,29 @@ namespace CloudZBackup.Application.Services;
 /// </summary>
 public sealed class SnapshotService(IFileSystemService fileSystem) : ISnapshotService
 {
-    private readonly IEqualityComparer<RelativePath> _relativePathComparer =
+    private readonly IEqualityComparer<RelativePath> relativePathComparer =
         new RelativePathComparer(OperatingSystem.IsWindows());
 
     /// <inheritdoc />
     public Snapshot CaptureSnapshot(string rootPath, bool includeFileMetadata, CancellationToken ct)
     {
-        Dictionary<RelativePath, FileEntry> files = new(_relativePathComparer);
-        HashSet<RelativePath> dirs = new(_relativePathComparer);
+        Dictionary<RelativePath, FileEntry> files = new(this.relativePathComparer);
+        HashSet<RelativePath> dirs = new(this.relativePathComparer);
 
         int cancellationCheckCounter = 0;
 
         foreach (string dir in fileSystem.EnumerateDirectoriesRecursive(rootPath))
         {
             if ((++cancellationCheckCounter & 0xFF) == 0)
+            {
                 ct.ThrowIfCancellationRequested();
+            }
 
             RelativePath rel = RelativePath.FromSystem(Path.GetRelativePath(rootPath, dir));
             if (!string.IsNullOrEmpty(rel.Value))
+            {
                 dirs.Add(rel);
+            }
         }
 
         cancellationCheckCounter = 0;
@@ -37,7 +41,9 @@ public sealed class SnapshotService(IFileSystemService fileSystem) : ISnapshotSe
         foreach (string file in fileSystem.EnumerateFilesRecursive(rootPath))
         {
             if ((++cancellationCheckCounter & 0xFF) == 0)
+            {
                 ct.ThrowIfCancellationRequested();
+            }
 
             RelativePath rel = RelativePath.FromSystem(Path.GetRelativePath(rootPath, file));
 
@@ -59,8 +65,7 @@ public sealed class SnapshotService(IFileSystemService fileSystem) : ISnapshotSe
     public Snapshot CreateEmptySnapshot()
     {
         return new Snapshot(
-            new Dictionary<RelativePath, FileEntry>(_relativePathComparer),
-            new HashSet<RelativePath>(_relativePathComparer)
-        );
+            new Dictionary<RelativePath, FileEntry>(this.relativePathComparer),
+            new HashSet<RelativePath>(this.relativePathComparer));
     }
 }

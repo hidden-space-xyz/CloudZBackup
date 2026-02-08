@@ -1,46 +1,118 @@
+namespace CloudZBackup.Tests.Unit.Application;
+
 using CloudZBackup.Application.Services;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Comparers;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
 
-namespace CloudZBackup.Tests.Unit.Application;
-
+/// <summary>
+/// Unit tests for <see cref="PlanService"/>.
+/// </summary>
 [TestFixture]
 public sealed class PlanServiceTests
 {
-    private readonly PlanService _sut = new();
-    private readonly IEqualityComparer<RelativePath> _comparer = new RelativePathComparer(
-        OperatingSystem.IsWindows()
-    );
+    private readonly IEqualityComparer<RelativePath> comparer = new RelativePathComparer(
+        OperatingSystem.IsWindows());
 
-    private Snapshot CreateSnapshot(
-        IEnumerable<string>? filePaths = null,
-        IEnumerable<string>? dirPaths = null
-    )
+    private readonly PlanService sut = new();
+
+    /// <summary>
+    /// Verifies that building a plan in <see cref="BackupMode.Add"/> mode identifies only
+    /// missing files and directories, without including extras.
+    /// </summary>
+    [Test]
+    public void BuildPlanAddModeOnlyIdentifiesMissingFilesAndDirsNoExtras()
     {
-        var files = new Dictionary<RelativePath, FileEntry>(_comparer);
-        var dirs = new HashSet<RelativePath>(_comparer);
+        Snapshot source = this.CreateSnapshot(filePaths: ["shared.txt", "new.txt"], dirPaths: ["dirA"]);
+        Snapshot dest = this.CreateSnapshot(filePaths: ["shared.txt", "old.txt"], dirPaths: ["dirB"]);
 
-        foreach (string f in filePaths ?? [])
+        Plan plan = this.sut.BuildPlan(BackupMode.Add, source, dest);
+
+        Assert.Multiple(() =>
         {
-            var rp = new RelativePath(f);
-            files[rp] = new FileEntry(rp, 100, DateTime.UtcNow);
-        }
-
-        foreach (string d in dirPaths ?? [])
-            dirs.Add(new RelativePath(d));
-
-        return new Snapshot(files, dirs);
+            Assert.That(plan.MissingFiles.Select(f => f.Value), Does.Contain("new.txt"));
+            Assert.That(plan.CommonFiles, Is.Empty);
+            Assert.That(plan.ExtraFiles, Is.Empty);
+            Assert.That(plan.TopLevelExtraDirectories, Is.Empty);
+            Assert.That(plan.DirectoriesToCreate.Select(d => d.Value), Does.Contain("dirA"));
+        });
     }
 
+    /// <summary>
+    /// Verifies that building a plan from two empty snapshots produces an empty plan.
+    /// </summary>
     [Test]
-    public void BuildPlan_SyncMode_IdentifiesMissingCommonAndExtraFiles()
+    public void BuildPlanEmptySnapshotsReturnsEmptyPlan()
     {
-        Snapshot source = CreateSnapshot(filePaths: ["shared.txt", "new.txt"], dirPaths: ["dirA"]);
-        Snapshot dest = CreateSnapshot(filePaths: ["shared.txt", "old.txt"], dirPaths: ["dirB"]);
+        Snapshot source = this.CreateSnapshot();
+        Snapshot dest = this.CreateSnapshot();
 
-        Plan plan = _sut.BuildPlan(BackupMode.Sync, source, dest);
+        Plan plan = this.sut.BuildPlan(BackupMode.Sync, source, dest);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.MissingFiles, Is.Empty);
+            Assert.That(plan.CommonFiles, Is.Empty);
+            Assert.That(plan.ExtraFiles, Is.Empty);
+            Assert.That(plan.DirectoriesToCreate, Is.Empty);
+            Assert.That(plan.TopLevelExtraDirectories, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// Verifies that building a plan in <see cref="BackupMode.Remove"/> mode identifies
+    /// only extra files and directories present in the destination.
+    /// </summary>
+    [Test]
+    public void BuildPlanRemoveModeOnlyIdentifiesExtraFilesAndDirs()
+    {
+        Snapshot source = this.CreateSnapshot(filePaths: ["shared.txt"], dirPaths: ["dirA"]);
+        Snapshot dest = this.CreateSnapshot(
+            filePaths: ["shared.txt", "extra.txt"],
+            dirPaths: ["dirA", "extraDir"]);
+
+        Plan plan = this.sut.BuildPlan(BackupMode.Remove, source, dest);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.MissingFiles, Is.Empty);
+            Assert.That(plan.CommonFiles, Is.Empty);
+            Assert.That(plan.DirectoriesToCreate, Is.Empty);
+            Assert.That(plan.ExtraFiles.Select(f => f.Value), Does.Contain("extra.txt"));
+            Assert.That(
+                plan.TopLevelExtraDirectories.Select(d => d.Value),
+                Does.Contain("extraDir"));
+        });
+    }
+
+    /// <summary>
+    /// Verifies that directories to create are sorted by path length so parents are
+    /// created before children.
+    /// </summary>
+    [Test]
+    public void BuildPlanSyncModeDirectoriesToCreateSortedByPathLength()
+    {
+        Snapshot source = this.CreateSnapshot(dirPaths: ["a/b/c", "a", "a/b"]);
+        Snapshot dest = this.CreateSnapshot();
+
+        Plan plan = this.sut.BuildPlan(BackupMode.Sync, source, dest);
+
+        var lengths = plan.DirectoriesToCreate.Select(d => d.Value.Length).ToList();
+        Assert.That(lengths, Is.Ordered);
+    }
+
+    /// <summary>
+    /// Verifies that building a plan in <see cref="BackupMode.Sync"/> mode correctly
+    /// classifies files as missing, common, or extra.
+    /// </summary>
+    [Test]
+    public void BuildPlanSyncModeIdentifiesMissingCommonAndExtraFiles()
+    {
+        Snapshot source = this.CreateSnapshot(filePaths: ["shared.txt", "new.txt"], dirPaths: ["dirA"]);
+        Snapshot dest = this.CreateSnapshot(filePaths: ["shared.txt", "old.txt"], dirPaths: ["dirB"]);
+
+        Plan plan = this.sut.BuildPlan(BackupMode.Sync, source, dest);
 
         Assert.Multiple(() =>
         {
@@ -51,75 +123,18 @@ public sealed class PlanServiceTests
         });
     }
 
+    /// <summary>
+    /// Verifies that <see cref="Plan.TopLevelExtraDirectories"/> filters out nested
+    /// subdirectories, keeping only top-level entries.
+    /// </summary>
     [Test]
-    public void BuildPlan_AddMode_OnlyIdentifiesMissingFilesAndDirs_NoExtras()
+    public void BuildPlanSyncModeTopLevelExtraDirectoriesFiltersNestedDirs()
     {
-        Snapshot source = CreateSnapshot(filePaths: ["shared.txt", "new.txt"], dirPaths: ["dirA"]);
-        Snapshot dest = CreateSnapshot(filePaths: ["shared.txt", "old.txt"], dirPaths: ["dirB"]);
+        Snapshot source = this.CreateSnapshot();
+        Snapshot dest = this.CreateSnapshot(
+            dirPaths: ["extra", "extra/nested", "extra/nested/deep", "other"]);
 
-        Plan plan = _sut.BuildPlan(BackupMode.Add, source, dest);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.MissingFiles.Select(f => f.Value), Does.Contain("new.txt"));
-            Assert.That(plan.CommonFiles, Is.Empty);
-            Assert.That(plan.ExtraFiles, Is.Empty);
-            Assert.That(plan.TopLevelExtraDirectories, Is.Empty);
-            Assert.That(plan.DirectoriesToCreate.Select(d => d.Value), Does.Contain("dirA"));
-        });
-    }
-
-    [Test]
-    public void BuildPlan_RemoveMode_OnlyIdentifiesExtraFilesAndDirs()
-    {
-        Snapshot source = CreateSnapshot(filePaths: ["shared.txt"], dirPaths: ["dirA"]);
-        Snapshot dest = CreateSnapshot(
-            filePaths: ["shared.txt", "extra.txt"],
-            dirPaths: ["dirA", "extraDir"]
-        );
-
-        Plan plan = _sut.BuildPlan(BackupMode.Remove, source, dest);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.MissingFiles, Is.Empty);
-            Assert.That(plan.CommonFiles, Is.Empty);
-            Assert.That(plan.DirectoriesToCreate, Is.Empty);
-            Assert.That(plan.ExtraFiles.Select(f => f.Value), Does.Contain("extra.txt"));
-            Assert.That(
-                plan.TopLevelExtraDirectories.Select(d => d.Value),
-                Does.Contain("extraDir")
-            );
-        });
-    }
-
-    [Test]
-    public void BuildPlan_EmptySnapshots_ReturnsEmptyPlan()
-    {
-        Snapshot source = CreateSnapshot();
-        Snapshot dest = CreateSnapshot();
-
-        Plan plan = _sut.BuildPlan(BackupMode.Sync, source, dest);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.MissingFiles, Is.Empty);
-            Assert.That(plan.CommonFiles, Is.Empty);
-            Assert.That(plan.ExtraFiles, Is.Empty);
-            Assert.That(plan.DirectoriesToCreate, Is.Empty);
-            Assert.That(plan.TopLevelExtraDirectories, Is.Empty);
-        });
-    }
-
-    [Test]
-    public void BuildPlan_SyncMode_TopLevelExtraDirectories_FiltersNestedDirs()
-    {
-        Snapshot source = CreateSnapshot();
-        Snapshot dest = CreateSnapshot(
-            dirPaths: ["extra", "extra/nested", "extra/nested/deep", "other"]
-        );
-
-        Plan plan = _sut.BuildPlan(BackupMode.Sync, source, dest);
+        Plan plan = this.sut.BuildPlan(BackupMode.Sync, source, dest);
 
         var topLevel = plan.TopLevelExtraDirectories.Select(d => d.Value).ToList();
 
@@ -132,15 +147,24 @@ public sealed class PlanServiceTests
         });
     }
 
-    [Test]
-    public void BuildPlan_SyncMode_DirectoriesToCreate_SortedByPathLength()
+    private Snapshot CreateSnapshot(
+        IEnumerable<string>? filePaths = null,
+        IEnumerable<string>? dirPaths = null)
     {
-        Snapshot source = CreateSnapshot(dirPaths: ["a/b/c", "a", "a/b"]);
-        Snapshot dest = CreateSnapshot();
+        var files = new Dictionary<RelativePath, FileEntry>(this.comparer);
+        var dirs = new HashSet<RelativePath>(this.comparer);
 
-        Plan plan = _sut.BuildPlan(BackupMode.Sync, source, dest);
+        foreach (string f in filePaths ?? [])
+        {
+            var rp = new RelativePath(f);
+            files[rp] = new FileEntry(rp, 100, DateTime.UtcNow);
+        }
 
-        var lengths = plan.DirectoriesToCreate.Select(d => d.Value.Length).ToList();
-        Assert.That(lengths, Is.Ordered);
+        foreach (string d in dirPaths ?? [])
+        {
+            dirs.Add(new RelativePath(d));
+        }
+
+        return new Snapshot(files, dirs);
     }
 }

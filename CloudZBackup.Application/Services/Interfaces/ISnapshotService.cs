@@ -1,6 +1,6 @@
-﻿using CloudZBackup.Domain.ValueObjects;
+﻿namespace CloudZBackup.Application.Services.Interfaces;
 
-namespace CloudZBackup.Application.Services.Interfaces;
+using CloudZBackup.Domain.ValueObjects;
 
 /// <summary>
 /// Captures point-in-time snapshots of directory trees for comparison during backup planning.

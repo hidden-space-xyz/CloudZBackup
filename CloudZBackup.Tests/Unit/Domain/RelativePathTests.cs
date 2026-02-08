@@ -1,20 +1,36 @@
-using CloudZBackup.Domain.ValueObjects;
-
 namespace CloudZBackup.Tests.Unit.Domain;
 
+using CloudZBackup.Domain.ValueObjects;
+
+/// <summary>
+/// Unit tests for <see cref="RelativePath"/>.
+/// </summary>
 [TestFixture]
 public sealed class RelativePathTests
 {
+    /// <summary>
+    /// Verifies that constructing a <see cref="RelativePath"/> with an empty or whitespace string
+    /// produces an instance whose value is <see cref="string.Empty"/>.
+    /// </summary>
     [Test]
-    public void Constructor_NormalizesBackslashesToForwardSlashes()
+    public void ConstructorEmptyOrWhitespaceReturnsEmptyValue()
     {
-        var rp = new RelativePath(@"folder\subfolder\file.txt");
+        var empty = new RelativePath(string.Empty);
+        var whitespace = new RelativePath("   ");
 
-        Assert.That(rp.Value, Is.EqualTo("folder/subfolder/file.txt"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(empty.Value, Is.EqualTo(string.Empty));
+            Assert.That(whitespace.Value, Is.EqualTo(string.Empty));
+        });
     }
 
+    /// <summary>
+    /// Verifies platform-specific behavior for a leading slash: throws on Windows,
+    /// trims the slash on Unix.
+    /// </summary>
     [Test]
-    public void Constructor_LeadingSlash_ThrowsOnWindows_OrTrimsOnUnix()
+    public void ConstructorLeadingSlashThrowsOnWindowsOrTrimsOnUnix()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -27,61 +43,56 @@ public sealed class RelativePathTests
         }
     }
 
+    /// <summary>
+    /// Verifies that backslashes are normalized to forward slashes during construction.
+    /// </summary>
     [Test]
-    public void Constructor_EmptyOrWhitespace_ReturnsEmptyValue()
+    public void ConstructorNormalizesBackslashesToForwardSlashes()
     {
-        var empty = new RelativePath("");
-        var whitespace = new RelativePath("   ");
+        var rp = new RelativePath(@"folder\subfolder\file.txt");
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(empty.Value, Is.EqualTo(string.Empty));
-            Assert.That(whitespace.Value, Is.EqualTo(string.Empty));
-        });
+        Assert.That(rp.Value, Is.EqualTo("folder/subfolder/file.txt"));
     }
 
+    /// <summary>
+    /// Verifies that constructing a <see cref="RelativePath"/> with a rooted path
+    /// throws <see cref="ArgumentException"/>.
+    /// </summary>
     [Test]
-    public void Constructor_ThrowsForTraversalSegments()
-    {
-        Assert.Throws<ArgumentException>(() => _ = new RelativePath("folder/../secret"));
-    }
-
-    [Test]
-    public void Constructor_ThrowsForRootedPath()
+    public void ConstructorThrowsForRootedPath()
     {
         string rooted = OperatingSystem.IsWindows() ? @"C:\absolute\path" : "/absolute/path";
 
         Assert.Throws<ArgumentException>(() => _ = new RelativePath(rooted));
     }
 
+    /// <summary>
+    /// Verifies that constructing a <see cref="RelativePath"/> with directory traversal segments
+    /// throws <see cref="ArgumentException"/>.
+    /// </summary>
     [Test]
-    public void FromSystem_CreatesEquivalentInstance()
+    public void ConstructorThrowsForTraversalSegments()
     {
-        var rp = RelativePath.FromSystem("a/b/c.txt");
-
-        Assert.That(rp.Value, Is.EqualTo("a/b/c.txt"));
+        Assert.Throws<ArgumentException>(() => _ = new RelativePath("folder/../secret"));
     }
 
+    /// <summary>
+    /// Verifies that two <see cref="RelativePath"/> instances with different values are not equal.
+    /// </summary>
     [Test]
-    public void ToSystemPath_ReturnsNativeSeparators()
+    public void EqualityDifferentValueAreNotEqual()
     {
-        var rp = new RelativePath("folder/sub/file.txt");
-        string system = rp.ToSystemPath();
+        var a = new RelativePath("folder/file1.txt");
+        var b = new RelativePath("folder/file2.txt");
 
-        string expected = Path.Combine("folder", "sub", "file.txt");
-        Assert.That(system, Is.EqualTo(expected));
+        Assert.That(a, Is.Not.EqualTo(b));
     }
 
+    /// <summary>
+    /// Verifies that two <see cref="RelativePath"/> instances with the same value are equal.
+    /// </summary>
     [Test]
-    public void ToString_ReturnsValue()
-    {
-        var rp = new RelativePath("docs/readme.md");
-
-        Assert.That(rp.ToString(), Is.EqualTo("docs/readme.md"));
-    }
-
-    [Test]
-    public void Equality_SameValue_AreEqual()
+    public void EqualitySameValueAreEqual()
     {
         var a = new RelativePath("folder/file.txt");
         var b = new RelativePath("folder/file.txt");
@@ -89,12 +100,39 @@ public sealed class RelativePathTests
         Assert.That(a, Is.EqualTo(b));
     }
 
+    /// <summary>
+    /// Verifies that <see cref="RelativePath.FromSystem"/> creates an equivalent instance.
+    /// </summary>
     [Test]
-    public void Equality_DifferentValue_AreNotEqual()
+    public void FromSystemCreatesEquivalentInstance()
     {
-        var a = new RelativePath("folder/file1.txt");
-        var b = new RelativePath("folder/file2.txt");
+        var rp = RelativePath.FromSystem("a/b/c.txt");
 
-        Assert.That(a, Is.Not.EqualTo(b));
+        Assert.That(rp.Value, Is.EqualTo("a/b/c.txt"));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="RelativePath.ToString"/> returns the stored value.
+    /// </summary>
+    [Test]
+    public void ToStringReturnsValue()
+    {
+        var rp = new RelativePath("docs/readme.md");
+
+        Assert.That(rp.ToString(), Is.EqualTo("docs/readme.md"));
+    }
+
+    /// <summary>
+    /// Verifies that <see cref="RelativePath.ToSystemPath"/> returns the path
+    /// with platform-native directory separators.
+    /// </summary>
+    [Test]
+    public void ToSystemPathReturnsNativeSeparators()
+    {
+        var rp = new RelativePath("folder/sub/file.txt");
+        string system = rp.ToSystemPath();
+
+        string expected = Path.Combine("folder", "sub", "file.txt");
+        Assert.That(system, Is.EqualTo(expected));
     }
 }

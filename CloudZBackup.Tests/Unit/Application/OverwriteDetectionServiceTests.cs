@@ -1,3 +1,5 @@
+namespace CloudZBackup.Tests.Unit.Application;
+
 using CloudZBackup.Application.Services;
 using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
@@ -5,75 +7,92 @@ using CloudZBackup.Domain.ValueObjects;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
-namespace CloudZBackup.Tests.Unit.Application;
-
+/// <summary>
+/// Unit tests for <see cref="OverwriteDetectionService"/>.
+/// </summary>
 [TestFixture]
 public sealed class OverwriteDetectionServiceTests
 {
-    private IHashingService _hashingService = null!;
-    private IFileSystemService _fileSystem = null!;
-    private OverwriteDetectionService _sut = null!;
-
     private static readonly DateTime BaseTime = new(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    private IFileSystemService fileSystem = null!;
+    private IHashingService hashingService = null!;
+    private OverwriteDetectionService sut = null!;
 
-    [SetUp]
-    public void SetUp()
-    {
-        _hashingService = Substitute.For<IHashingService>();
-        _fileSystem = Substitute.For<IFileSystemService>();
-        var options = Options.Create(new BackupOptions { MaxHashConcurrency = 1 });
-        _sut = new OverwriteDetectionService(_hashingService, options, _fileSystem);
-
-        _fileSystem
-            .Combine(Arg.Any<string>(), Arg.Any<RelativePath>())
-            .Returns(ci => $"{ci.ArgAt<string>(0)}/{ci.ArgAt<RelativePath>(1).Value}");
-    }
-
+    /// <summary>
+    /// Verifies that a file with a different size is marked for overwrite without
+    /// performing a hash comparison.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public async Task DifferentFileSize_MarkedForOverwrite_WithoutHashing()
+    public async Task DifferentFileSizeMarkedForOverwriteWithoutHashing()
     {
         var rp = new RelativePath("file.txt");
         var commonFiles = new List<RelativePath> { rp };
         var sourceFiles = new Dictionary<RelativePath, FileEntry> { [rp] = new(rp, 100, BaseTime) };
         var destFiles = new Dictionary<RelativePath, FileEntry> { [rp] = new(rp, 200, BaseTime) };
 
-        List<RelativePath> result = await _sut.ComputeFilesToOverwriteAsync(
+        List<RelativePath> result = await this.sut.ComputeFilesToOverwriteAsync(
             commonFiles,
             sourceFiles,
             destFiles,
             "/src",
             "/dst",
-            CancellationToken.None
-        );
+            CancellationToken.None);
 
         Assert.That(result, Has.Count.EqualTo(1));
-        await _hashingService
+        await this.hashingService
             .DidNotReceive()
             .ComputeSha256Async(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// Verifies that an empty common-files list produces an empty overwrite list.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public async Task SameSizeAndTimestamp_NotMarkedForOverwrite()
+    public async Task EmptyCommonFilesReturnsEmptyList()
+    {
+        List<RelativePath> result = await this.sut.ComputeFilesToOverwriteAsync(
+            [],
+            new Dictionary<RelativePath, FileEntry>(),
+            new Dictionary<RelativePath, FileEntry>(),
+            "/src",
+            "/dst",
+            CancellationToken.None);
+
+        Assert.That(result, Is.Empty);
+    }
+
+    /// <summary>
+    /// Verifies that a file with the same size and timestamp is not marked for overwrite.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
+    [Test]
+    public async Task SameSizeAndTimestampNotMarkedForOverwrite()
     {
         var rp = new RelativePath("file.txt");
         var commonFiles = new List<RelativePath> { rp };
         var sourceFiles = new Dictionary<RelativePath, FileEntry> { [rp] = new(rp, 100, BaseTime) };
         var destFiles = new Dictionary<RelativePath, FileEntry> { [rp] = new(rp, 100, BaseTime) };
 
-        List<RelativePath> result = await _sut.ComputeFilesToOverwriteAsync(
+        List<RelativePath> result = await this.sut.ComputeFilesToOverwriteAsync(
             commonFiles,
             sourceFiles,
             destFiles,
             "/src",
             "/dst",
-            CancellationToken.None
-        );
+            CancellationToken.None);
 
         Assert.That(result, Is.Empty);
     }
 
+    /// <summary>
+    /// Verifies that a file with the same size but different timestamp and different hash
+    /// is marked for overwrite.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public async Task SameSize_DifferentTimestamp_DifferentHash_MarkedForOverwrite()
+    public async Task SameSizeDifferentTimestampDifferentHashMarkedForOverwrite()
     {
         var rp = new RelativePath("file.txt");
         var commonFiles = new List<RelativePath> { rp };
@@ -83,27 +102,31 @@ public sealed class OverwriteDetectionServiceTests
             [rp] = new(rp, 100, BaseTime.AddHours(1)),
         };
 
-        _hashingService
+        this.hashingService
             .ComputeSha256Async("/src/file.txt", Arg.Any<CancellationToken>())
             .Returns(new byte[] { 1, 2, 3 });
-        _hashingService
+        this.hashingService
             .ComputeSha256Async("/dst/file.txt", Arg.Any<CancellationToken>())
             .Returns(new byte[] { 4, 5, 6 });
 
-        List<RelativePath> result = await _sut.ComputeFilesToOverwriteAsync(
+        List<RelativePath> result = await this.sut.ComputeFilesToOverwriteAsync(
             commonFiles,
             sourceFiles,
             destFiles,
             "/src",
             "/dst",
-            CancellationToken.None
-        );
+            CancellationToken.None);
 
         Assert.That(result, Has.Count.EqualTo(1));
     }
 
+    /// <summary>
+    /// Verifies that a file with the same size but different timestamp and same hash
+    /// is not marked for overwrite.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public async Task SameSize_DifferentTimestamp_SameHash_NotMarkedForOverwrite()
+    public async Task SameSizeDifferentTimestampSameHashNotMarkedForOverwrite()
     {
         var rp = new RelativePath("file.txt");
         var commonFiles = new List<RelativePath> { rp };
@@ -114,34 +137,34 @@ public sealed class OverwriteDetectionServiceTests
         };
 
         byte[] hash = [1, 2, 3, 4, 5, 6, 7, 8];
-        _hashingService
+        this.hashingService
             .ComputeSha256Async(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(hash);
 
-        List<RelativePath> result = await _sut.ComputeFilesToOverwriteAsync(
+        List<RelativePath> result = await this.sut.ComputeFilesToOverwriteAsync(
             commonFiles,
             sourceFiles,
             destFiles,
             "/src",
             "/dst",
-            CancellationToken.None
-        );
+            CancellationToken.None);
 
         Assert.That(result, Is.Empty);
     }
 
-    [Test]
-    public async Task EmptyCommonFiles_ReturnsEmptyList()
+    /// <summary>
+    /// Initializes test dependencies before each test.
+    /// </summary>
+    [SetUp]
+    public void SetUp()
     {
-        List<RelativePath> result = await _sut.ComputeFilesToOverwriteAsync(
-            [],
-            new Dictionary<RelativePath, FileEntry>(),
-            new Dictionary<RelativePath, FileEntry>(),
-            "/src",
-            "/dst",
-            CancellationToken.None
-        );
+        this.hashingService = Substitute.For<IHashingService>();
+        this.fileSystem = Substitute.For<IFileSystemService>();
+        var options = Options.Create(new BackupOptions { MaxHashConcurrency = 1 });
+        this.sut = new OverwriteDetectionService(this.hashingService, options, this.fileSystem);
 
-        Assert.That(result, Is.Empty);
+        this.fileSystem
+            .Combine(Arg.Any<string>(), Arg.Any<RelativePath>())
+            .Returns(ci => $"{ci.ArgAt<string>(0)}/{ci.ArgAt<RelativePath>(1).Value}");
     }
 }

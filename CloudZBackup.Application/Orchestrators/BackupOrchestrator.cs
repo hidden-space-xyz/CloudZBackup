@@ -1,11 +1,11 @@
-﻿using CloudZBackup.Application.Orchestrators.Interfaces;
+﻿namespace CloudZBackup.Application.Orchestrators;
+
+using CloudZBackup.Application.Orchestrators.Interfaces;
 using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
-
-namespace CloudZBackup.Application.Orchestrators;
 
 /// <summary>
 /// Orchestrates a complete backup operation: validates inputs, captures snapshots,
@@ -18,15 +18,13 @@ public sealed class BackupOrchestrator(
     IOverwriteDetectionService overwriteDetectionService,
     IBackupExecutionService executionService,
     IFileSystemService fileSystemService,
-    ILogger<BackupOrchestrator> logger
-) : IBackupOrchestrator
+    ILogger<BackupOrchestrator> logger) : IBackupOrchestrator
 {
     /// <inheritdoc />
     public async Task<BackupResult> ExecuteAsync(
         BackupRequest request,
         IProgress<BackupProgress>? progress,
-        CancellationToken cancellationToken
-    )
+        CancellationToken cancellationToken)
     {
         (string sourceRoot, string destRoot) = fileSystemService.ValidateAndNormalize(request);
 
@@ -50,8 +48,7 @@ public sealed class BackupOrchestrator(
             sourceSnapshot = snapshotService.CaptureSnapshot(
                 sourceRoot,
                 needSourceMeta,
-                cancellationToken
-            );
+                cancellationToken);
         }
         else
         {
@@ -60,15 +57,12 @@ public sealed class BackupOrchestrator(
                     sourceSnapshot = snapshotService.CaptureSnapshot(
                         sourceRoot,
                         needSourceMeta,
-                        cancellationToken
-                    ),
+                        cancellationToken),
                 () =>
                     destSnapshot = snapshotService.CaptureSnapshot(
                         destRoot,
                         needDestMeta,
-                        cancellationToken
-                    )
-            );
+                        cancellationToken));
         }
 
         logger.LogInformation("Planning operations for mode: {Mode}", request.Mode);
@@ -81,8 +75,7 @@ public sealed class BackupOrchestrator(
         {
             logger.LogInformation(
                 "Verifying {Count} existing file(s) using SHA-256...",
-                plan.CommonFiles.Count
-            );
+                plan.CommonFiles.Count);
 
             filesToOverwrite = await overwriteDetectionService.ComputeFilesToOverwriteAsync(
                 commonFiles: plan.CommonFiles,
@@ -90,8 +83,7 @@ public sealed class BackupOrchestrator(
                 destFiles: destSnapshot.Files,
                 sourceRoot: sourceRoot,
                 destRoot: destRoot,
-                ct: cancellationToken
-            );
+                ct: cancellationToken);
         }
 
         return await executionService.ExecuteAsync(
@@ -102,7 +94,6 @@ public sealed class BackupOrchestrator(
             destRoot: destRoot,
             filesToOverwrite: filesToOverwrite,
             progress: progress,
-            ct: cancellationToken
-        );
+            ct: cancellationToken);
     }
 }

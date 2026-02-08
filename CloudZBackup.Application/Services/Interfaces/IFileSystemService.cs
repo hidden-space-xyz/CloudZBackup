@@ -1,8 +1,8 @@
-﻿using CloudZBackup.Application.ValueObjects;
+﻿namespace CloudZBackup.Application.Services.Interfaces;
+
+using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
-
-namespace CloudZBackup.Application.Services.Interfaces;
 
 /// <summary>
 /// Abstracts file-system operations so that the application layer remains
@@ -26,13 +26,13 @@ public interface IFileSystemService
     /// <param name="overwrite"><see langword="true"/> to overwrite an existing destination file.</param>
     /// <param name="lastWriteTimeUtc">If set, the last-write time to apply to the destination file.</param>
     /// <param name="cancellationToken">A token to observe for cancellation requests.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task CopyFileAsync(
         string sourceFile,
         string destinationFile,
         bool overwrite,
         DateTime? lastWriteTimeUtc,
-        CancellationToken cancellationToken
-    );
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates the specified directory (and any intermediate directories) if it does not already exist.
@@ -100,7 +100,7 @@ public interface IFileSystemService
     /// </summary>
     /// <param name="request">The backup request containing raw paths.</param>
     /// <returns>A tuple of the normalized source and destination root paths.</returns>
-    (string sourceRoot, string destRoot) ValidateAndNormalize(BackupRequest request);
+    (string SourceRoot, string DestRoot) ValidateAndNormalize(BackupRequest request);
 
     /// <summary>
     /// Validates that the source and destination paths do not overlap.

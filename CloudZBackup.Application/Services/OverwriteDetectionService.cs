@@ -1,11 +1,11 @@
-﻿using System.Collections.Concurrent;
+﻿namespace CloudZBackup.Application.Services;
+
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.ValueObjects;
 using Microsoft.Extensions.Options;
-
-namespace CloudZBackup.Application.Services;
 
 /// <summary>
 /// Identifies which files among a set of common (source ∩ destination) files have changed
@@ -16,8 +16,7 @@ namespace CloudZBackup.Application.Services;
 public sealed class OverwriteDetectionService(
     IHashingService hashCalculator,
     IOptions<BackupOptions> options,
-    IFileSystemService fileSystemService
-) : IOverwriteDetectionService
+    IFileSystemService fileSystemService) : IOverwriteDetectionService
 {
     /// <inheritdoc />
     public async Task<List<RelativePath>> ComputeFilesToOverwriteAsync(
@@ -26,8 +25,7 @@ public sealed class OverwriteDetectionService(
         IReadOnlyDictionary<RelativePath, FileEntry> destFiles,
         string sourceRoot,
         string destRoot,
-        CancellationToken ct
-    )
+        CancellationToken ct)
     {
         var bag = new ConcurrentQueue<RelativePath>();
 
@@ -52,7 +50,9 @@ public sealed class OverwriteDetectionService(
                 }
 
                 if (srcMeta.LastWriteTimeUtc == dstMeta.LastWriteTimeUtc)
+                {
                     return;
+                }
 
                 string srcFull = fileSystemService.Combine(sourceRoot, relPath);
                 string dstFull = fileSystemService.Combine(destRoot, relPath);
@@ -61,9 +61,10 @@ public sealed class OverwriteDetectionService(
                 byte[] dstHash = await hashCalculator.ComputeSha256Async(dstFull, token);
 
                 if (!CryptographicOperations.FixedTimeEquals(srcHash, dstHash))
+                {
                     bag.Enqueue(relPath);
-            }
-        );
+                }
+            });
 
         return [.. bag];
     }

@@ -13,5 +13,4 @@ public sealed record BackupResult(
     int FilesCopied,
     int FilesOverwritten,
     int FilesDeleted,
-    int DirectoriesDeleted
-);
+    int DirectoriesDeleted);

@@ -1,7 +1,7 @@
-﻿using System.Security.Cryptography;
-using CloudZBackup.Application.Services.Interfaces;
+﻿namespace CloudZBackup.Infrastructure.Services;
 
-namespace CloudZBackup.Infrastructure.Services;
+using System.Security.Cryptography;
+using CloudZBackup.Application.Services.Interfaces;
 
 /// <summary>
 /// Computes SHA-256 hashes of files using buffered, asynchronous stream reads.
@@ -11,8 +11,7 @@ public sealed class HashingService : IHashingService
     /// <inheritdoc />
     public async Task<byte[]> ComputeSha256Async(
         string filePath,
-        CancellationToken cancellationToken
-    )
+        CancellationToken cancellationToken)
     {
         await using var stream = new FileStream(
             filePath,
@@ -20,8 +19,7 @@ public sealed class HashingService : IHashingService
             FileAccess.Read,
             FileShare.Read,
             bufferSize: 1024 * 1024,
-            options: FileOptions.SequentialScan | FileOptions.Asynchronous
-        );
+            options: FileOptions.SequentialScan | FileOptions.Asynchronous);
 
         return await SHA256.HashDataAsync(stream, cancellationToken);
     }

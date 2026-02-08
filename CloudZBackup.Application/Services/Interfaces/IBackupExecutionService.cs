@@ -1,8 +1,8 @@
-﻿using CloudZBackup.Application.ValueObjects;
+﻿namespace CloudZBackup.Application.Services.Interfaces;
+
+using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
-
-namespace CloudZBackup.Application.Services.Interfaces;
 
 /// <summary>
 /// Executes the low-level file-system operations (copy, delete, overwrite) described by a <see cref="Plan"/>.
@@ -30,6 +30,5 @@ public interface IBackupExecutionService
         string destRoot,
         IReadOnlyCollection<RelativePath> filesToOverwrite,
         IProgress<BackupProgress>? progress,
-        CancellationToken ct
-    );
+        CancellationToken ct);
 }

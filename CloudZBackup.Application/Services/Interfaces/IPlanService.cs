@@ -1,8 +1,8 @@
-﻿using CloudZBackup.Application.ValueObjects;
+﻿namespace CloudZBackup.Application.Services.Interfaces;
+
+using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
-
-namespace CloudZBackup.Application.Services.Interfaces;
 
 /// <summary>
 /// Compares source and destination snapshots to build a <see cref="Plan"/> of required operations.

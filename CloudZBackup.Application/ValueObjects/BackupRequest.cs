@@ -1,6 +1,6 @@
-﻿using CloudZBackup.Domain.Enums;
+﻿namespace CloudZBackup.Application.ValueObjects;
 
-namespace CloudZBackup.Application.ValueObjects;
+using CloudZBackup.Domain.Enums;
 
 /// <summary>
 /// Encapsulates the parameters required to initiate a backup operation.

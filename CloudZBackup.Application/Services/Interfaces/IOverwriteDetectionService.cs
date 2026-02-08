@@ -1,6 +1,6 @@
-﻿using CloudZBackup.Domain.ValueObjects;
+﻿namespace CloudZBackup.Application.Services.Interfaces;
 
-namespace CloudZBackup.Application.Services.Interfaces;
+using CloudZBackup.Domain.ValueObjects;
 
 /// <summary>
 /// Determines which files among a set of common (shared) files have changed
@@ -25,6 +25,5 @@ public interface IOverwriteDetectionService
         IReadOnlyDictionary<RelativePath, FileEntry> destFiles,
         string sourceRoot,
         string destRoot,
-        CancellationToken ct
-    );
+        CancellationToken ct);
 }

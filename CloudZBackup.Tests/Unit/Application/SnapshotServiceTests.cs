@@ -1,45 +1,86 @@
+namespace CloudZBackup.Tests.Unit.Application;
+
 using CloudZBackup.Application.Services;
 using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.ValueObjects;
 using NSubstitute;
 
-namespace CloudZBackup.Tests.Unit.Application;
-
+/// <summary>
+/// Unit tests for <see cref="SnapshotService"/>.
+/// </summary>
 [TestFixture]
 public sealed class SnapshotServiceTests
 {
-    private IFileSystemService _fileSystem = null!;
-    private SnapshotService _sut = null!;
+    private IFileSystemService fileSystem = null!;
+    private SnapshotService sut = null!;
 
-    [SetUp]
-    public void SetUp()
+    /// <summary>
+    /// Verifies that <see cref="SnapshotService.CaptureSnapshot"/> throws
+    /// <see cref="OperationCanceledException"/> when the cancellation token is already cancelled.
+    /// </summary>
+    [Test]
+    public void CaptureSnapshotCancellationThrowsOperationCanceledException()
     {
-        _fileSystem = Substitute.For<IFileSystemService>();
-        _sut = new SnapshotService(_fileSystem);
+        string root = "/source";
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // The cancellation check happens every 256 items, so we provide enough items
+        var dirs = Enumerable.Range(0, 300).Select(i => $"/source/dir{i}").ToList();
+        this.fileSystem.EnumerateDirectoriesRecursive(root).Returns(dirs);
+
+        Assert.Throws<OperationCanceledException>(() =>
+            this.sut.CaptureSnapshot(root, true, cts.Token));
     }
 
+    /// <summary>
+    /// Verifies that capturing a snapshot of an empty directory returns a snapshot
+    /// with no files and no directories.
+    /// </summary>
     [Test]
-    public void CaptureSnapshot_WithFilesAndDirectories_ReturnsPopulatedSnapshot()
+    public void CaptureSnapshotEmptyDirectoryReturnsEmptySnapshot()
+    {
+        string root = "/empty";
+        this.fileSystem.EnumerateDirectoriesRecursive(root).Returns([]);
+        this.fileSystem.EnumerateFilesRecursive(root).Returns([]);
+
+        Snapshot result = this.sut.CaptureSnapshot(
+            root,
+            includeFileMetadata: true,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Files, Is.Empty);
+            Assert.That(result.Directories, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// Verifies that capturing a snapshot of a directory with files and subdirectories
+    /// returns a populated snapshot containing all discovered entries.
+    /// </summary>
+    [Test]
+    public void CaptureSnapshotWithFilesAndDirectoriesReturnsPopulatedSnapshot()
     {
         string root = "/source";
 
-        _fileSystem.EnumerateDirectoriesRecursive(root).Returns(["/source/subdir"]);
-        _fileSystem
+        this.fileSystem.EnumerateDirectoriesRecursive(root).Returns(["/source/subdir"]);
+        this.fileSystem
             .EnumerateFilesRecursive(root)
             .Returns(["/source/file1.txt", "/source/subdir/file2.txt"]);
-        _fileSystem
+        this.fileSystem
             .GetFileMetadata("/source/file1.txt")
             .Returns(new FileMetadata(100, new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
-        _fileSystem
+        this.fileSystem
             .GetFileMetadata("/source/subdir/file2.txt")
             .Returns(new FileMetadata(200, new DateTime(2024, 2, 1, 0, 0, 0, DateTimeKind.Utc)));
 
-        Snapshot result = _sut.CaptureSnapshot(
+        Snapshot result = this.sut.CaptureSnapshot(
             root,
             includeFileMetadata: true,
-            CancellationToken.None
-        );
+            CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -48,19 +89,22 @@ public sealed class SnapshotServiceTests
         });
     }
 
+    /// <summary>
+    /// Verifies that capturing a snapshot without metadata produces file entries
+    /// with zero length and default <see cref="DateTime"/> values.
+    /// </summary>
     [Test]
-    public void CaptureSnapshot_WithoutMetadata_SetsZeroLengthAndDefaultTime()
+    public void CaptureSnapshotWithoutMetadataSetsZeroLengthAndDefaultTime()
     {
         string root = "/source";
 
-        _fileSystem.EnumerateDirectoriesRecursive(root).Returns([]);
-        _fileSystem.EnumerateFilesRecursive(root).Returns(["/source/file.txt"]);
+        this.fileSystem.EnumerateDirectoriesRecursive(root).Returns([]);
+        this.fileSystem.EnumerateFilesRecursive(root).Returns(["/source/file.txt"]);
 
-        Snapshot result = _sut.CaptureSnapshot(
+        Snapshot result = this.sut.CaptureSnapshot(
             root,
             includeFileMetadata: false,
-            CancellationToken.None
-        );
+            CancellationToken.None);
 
         FileEntry entry = result.Files.Values.Single();
         Assert.Multiple(() =>
@@ -70,18 +114,14 @@ public sealed class SnapshotServiceTests
         });
     }
 
+    /// <summary>
+    /// Verifies that <see cref="SnapshotService.CreateEmptySnapshot"/> returns
+    /// a snapshot with empty file and directory collections.
+    /// </summary>
     [Test]
-    public void CaptureSnapshot_EmptyDirectory_ReturnsEmptySnapshot()
+    public void CreateEmptySnapshotReturnsSnapshotWithNoFilesOrDirectories()
     {
-        string root = "/empty";
-        _fileSystem.EnumerateDirectoriesRecursive(root).Returns([]);
-        _fileSystem.EnumerateFilesRecursive(root).Returns([]);
-
-        Snapshot result = _sut.CaptureSnapshot(
-            root,
-            includeFileMetadata: true,
-            CancellationToken.None
-        );
+        Snapshot result = this.sut.CreateEmptySnapshot();
 
         Assert.Multiple(() =>
         {
@@ -90,31 +130,13 @@ public sealed class SnapshotServiceTests
         });
     }
 
-    [Test]
-    public void CaptureSnapshot_Cancellation_ThrowsOperationCanceledException()
+    /// <summary>
+    /// Initializes test dependencies before each test.
+    /// </summary>
+    [SetUp]
+    public void SetUp()
     {
-        string root = "/source";
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // The cancellation check happens every 256 items, so we provide enough items
-        var dirs = Enumerable.Range(0, 300).Select(i => $"/source/dir{i}").ToList();
-        _fileSystem.EnumerateDirectoriesRecursive(root).Returns(dirs);
-
-        Assert.Throws<OperationCanceledException>(() =>
-            _sut.CaptureSnapshot(root, true, cts.Token)
-        );
-    }
-
-    [Test]
-    public void CreateEmptySnapshot_ReturnsSnapshotWithNoFilesOrDirectories()
-    {
-        Snapshot result = _sut.CreateEmptySnapshot();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Files, Is.Empty);
-            Assert.That(result.Directories, Is.Empty);
-        });
+        this.fileSystem = Substitute.For<IFileSystemService>();
+        this.sut = new SnapshotService(this.fileSystem);
     }
 }

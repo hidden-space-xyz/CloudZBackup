@@ -1,10 +1,10 @@
-﻿using CloudZBackup.Application.Services.Interfaces;
+﻿namespace CloudZBackup.Application.Services;
+
+using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
 using Microsoft.Extensions.Options;
-
-namespace CloudZBackup.Application.Services;
 
 /// <summary>
 /// Executes the file-system operations described by a <see cref="Plan"/>,
@@ -13,8 +13,7 @@ namespace CloudZBackup.Application.Services;
 /// </summary>
 public sealed class BackupExecutionService(
     IFileSystemService fileSystem,
-    IOptions<BackupOptions> options
-) : IBackupExecutionService
+    IOptions<BackupOptions> options) : IBackupExecutionService
 {
     /// <inheritdoc />
     public async Task<BackupResult> ExecuteAsync(
@@ -25,10 +24,9 @@ public sealed class BackupExecutionService(
         string destRoot,
         IReadOnlyCollection<RelativePath> filesToOverwrite,
         IProgress<BackupProgress>? progress,
-        CancellationToken ct
-    )
+        CancellationToken ct)
     {
-        int maxIoConcurrency = GetRecommendedIoConcurrency(destRoot);
+        int maxIoConcurrency = this.GetRecommendedIoConcurrency(destRoot);
 
         var ioOptions = new ParallelOptions
         {
@@ -55,7 +53,7 @@ public sealed class BackupExecutionService(
 
         if (mode is BackupMode.Sync or BackupMode.Add)
         {
-            await CreateDirectoriesAsync(
+            await this.CreateDirectoriesAsync(
                 plan.DirectoriesToCreate,
                 destRoot,
                 ioOptions,
@@ -63,10 +61,9 @@ public sealed class BackupExecutionService(
                 {
                     Interlocked.Increment(ref directoriesCreated);
                     ReportProgress("Creating directories");
-                }
-            );
+                });
 
-            await CopyMissingFilesAsync(
+            await this.CopyMissingFilesAsync(
                 plan.MissingFiles,
                 sourceSnapshot.Files,
                 sourceRoot,
@@ -76,12 +73,11 @@ public sealed class BackupExecutionService(
                 {
                     Interlocked.Increment(ref filesCopied);
                     ReportProgress("Copying files");
-                }
-            );
+                });
 
             if (mode == BackupMode.Sync && filesToOverwrite.Count > 0)
             {
-                await OverwriteFilesAsync(
+                await this.OverwriteFilesAsync(
                     filesToOverwrite,
                     sourceSnapshot.Files,
                     sourceRoot,
@@ -91,14 +87,13 @@ public sealed class BackupExecutionService(
                     {
                         Interlocked.Increment(ref filesOverwritten);
                         ReportProgress("Overwriting files");
-                    }
-                );
+                    });
             }
         }
 
         if (mode is BackupMode.Sync or BackupMode.Remove)
         {
-            await DeleteExtraFilesAsync(
+            await this.DeleteExtraFilesAsync(
                 plan.ExtraFiles,
                 destRoot,
                 ioOptions,
@@ -106,8 +101,7 @@ public sealed class BackupExecutionService(
                 {
                     Interlocked.Increment(ref filesDeleted);
                     ReportProgress("Deleting files");
-                }
-            );
+                });
 
             foreach (RelativePath relDir in plan.TopLevelExtraDirectories)
             {
@@ -125,35 +119,7 @@ public sealed class BackupExecutionService(
             filesCopied,
             filesOverwritten,
             filesDeleted,
-            directoriesDeleted
-        );
-    }
-
-    /// <summary>
-    /// Determines a recommended IO concurrency level based on the destination drive type.
-    /// Network and removable drives are limited to sequential access.
-    /// </summary>
-    private int GetRecommendedIoConcurrency(string destinationRoot)
-    {
-        try
-        {
-            string? root = Path.GetPathRoot(destinationRoot);
-
-            if (string.IsNullOrWhiteSpace(root))
-                return options.Value.MaxFileIoConcurrency;
-
-            DriveInfo drive = new(root);
-
-            return drive.DriveType switch
-            {
-                DriveType.CDRom or DriveType.Network or DriveType.Removable => 1,
-                _ => options.Value.MaxFileIoConcurrency,
-            };
-        }
-        catch
-        {
-            return options.Value.MaxFileIoConcurrency;
-        }
+            directoriesDeleted);
     }
 
     /// <summary>
@@ -163,8 +129,7 @@ public sealed class BackupExecutionService(
     private static int ComputeTotalItems(
         BackupMode mode,
         Plan plan,
-        IReadOnlyCollection<RelativePath> filesToOverwrite
-    )
+        IReadOnlyCollection<RelativePath> filesToOverwrite)
     {
         int total = 0;
 
@@ -174,7 +139,9 @@ public sealed class BackupExecutionService(
             total += plan.MissingFiles.Count;
 
             if (mode == BackupMode.Sync)
+            {
                 total += filesToOverwrite.Count;
+            }
         }
 
         if (mode is BackupMode.Sync or BackupMode.Remove)
@@ -195,11 +162,12 @@ public sealed class BackupExecutionService(
         string sourceRoot,
         string destRoot,
         ParallelOptions options,
-        Action onCopied
-    )
+        Action onCopied)
     {
         if (missingFiles.Count == 0)
+        {
             return;
+        }
 
         await Parallel.ForEachAsync(
             missingFiles,
@@ -215,11 +183,9 @@ public sealed class BackupExecutionService(
                     dstFull,
                     overwrite: false,
                     meta.LastWriteTimeUtc,
-                    ct
-                );
+                    ct);
                 onCopied();
-            }
-        );
+            });
     }
 
     /// <summary>
@@ -229,11 +195,12 @@ public sealed class BackupExecutionService(
         IReadOnlyList<RelativePath> dirsToCreate,
         string destRoot,
         ParallelOptions options,
-        Action onCreated
-    )
+        Action onCreated)
     {
         if (dirsToCreate.Count == 0)
+        {
             return;
+        }
 
         await Parallel.ForEachAsync(
             dirsToCreate,
@@ -244,8 +211,7 @@ public sealed class BackupExecutionService(
                 fileSystem.CreateDirectory(full);
                 onCreated();
                 return ValueTask.CompletedTask;
-            }
-        );
+            });
     }
 
     /// <summary>
@@ -255,11 +221,12 @@ public sealed class BackupExecutionService(
         IReadOnlyList<RelativePath> extraFiles,
         string destRoot,
         ParallelOptions options,
-        Action onDeleted
-    )
+        Action onDeleted)
     {
         if (extraFiles.Count == 0)
+        {
             return;
+        }
 
         await Parallel.ForEachAsync(
             extraFiles,
@@ -270,8 +237,36 @@ public sealed class BackupExecutionService(
                 fileSystem.DeleteFileIfExists(dstFull);
                 onDeleted();
                 return ValueTask.CompletedTask;
+            });
+    }
+
+    /// <summary>
+    /// Determines a recommended IO concurrency level based on the destination drive type.
+    /// Network and removable drives are limited to sequential access.
+    /// </summary>
+    private int GetRecommendedIoConcurrency(string destinationRoot)
+    {
+        try
+        {
+            string? root = Path.GetPathRoot(destinationRoot);
+
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                return options.Value.MaxFileIoConcurrency;
             }
-        );
+
+            DriveInfo drive = new(root);
+
+            return drive.DriveType switch
+            {
+                DriveType.CDRom or DriveType.Network or DriveType.Removable => 1,
+                _ => options.Value.MaxFileIoConcurrency,
+            };
+        }
+        catch
+        {
+            return options.Value.MaxFileIoConcurrency;
+        }
     }
 
     /// <summary>
@@ -283,8 +278,7 @@ public sealed class BackupExecutionService(
         string sourceRoot,
         string destRoot,
         ParallelOptions options,
-        Action onOverwritten
-    )
+        Action onOverwritten)
     {
         await Parallel.ForEachAsync(
             overwriteFiles,
@@ -300,10 +294,8 @@ public sealed class BackupExecutionService(
                     dstFull,
                     overwrite: true,
                     meta.LastWriteTimeUtc,
-                    ct
-                );
+                    ct);
                 onOverwritten();
-            }
-        );
+            });
     }
 }

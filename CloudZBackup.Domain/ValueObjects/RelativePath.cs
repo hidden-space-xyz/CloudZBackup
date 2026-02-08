@@ -1,7 +1,7 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿namespace CloudZBackup.Domain.ValueObjects;
 
-namespace CloudZBackup.Domain.ValueObjects;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 /// <summary>
 /// A value object representing a normalized, forward-slash-separated relative file-system path.
@@ -11,12 +11,7 @@ namespace CloudZBackup.Domain.ValueObjects;
 public readonly record struct RelativePath
 {
     /// <summary>
-    /// Gets the normalized path value using forward slashes as separators.
-    /// </summary>
-    public string Value { get; }
-
-    /// <summary>
-    /// Initializes a new <see cref="RelativePath"/> instance after normalizing and validating the supplied value.
+    /// Initializes a new instance of the <see cref="RelativePath"/> struct.
     /// </summary>
     /// <param name="value">The raw path string to normalize.</param>
     /// <exception cref="ArgumentException">
@@ -26,23 +21,31 @@ public readonly record struct RelativePath
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            Value = string.Empty;
+            this.Value = string.Empty;
             return;
         }
 
         string normalized = value.Replace('\\', '/').TrimStart('/');
 
         if (Path.IsPathRooted(value))
+        {
             throw new ArgumentException("RelativePath cannot be rooted.", nameof(value));
+        }
 
         if (ContainsTraversalSegment(normalized))
+        {
             throw new ArgumentException(
                 "RelativePath cannot contain '..' segments.",
-                nameof(value)
-            );
+                nameof(value));
+        }
 
-        Value = normalized;
+        this.Value = normalized;
     }
+
+    /// <summary>
+    /// Gets the normalized path value using forward slashes as separators.
+    /// </summary>
+    public string Value { get; }
 
     /// <summary>
     /// Creates a <see cref="RelativePath"/> from a platform-specific relative path string.
@@ -62,16 +65,18 @@ public readonly record struct RelativePath
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public string ToSystemPath()
     {
-        if (string.IsNullOrEmpty(Value) || Path.DirectorySeparatorChar == '/')
-            return Value ?? string.Empty;
+        if (string.IsNullOrEmpty(this.Value) || Path.DirectorySeparatorChar == '/')
+        {
+            return this.Value ?? string.Empty;
+        }
 
-        return Value.Replace('/', Path.DirectorySeparatorChar);
+        return this.Value.Replace('/', Path.DirectorySeparatorChar);
     }
 
     /// <inheritdoc />
     public override string ToString()
     {
-        return Value;
+        return this.Value;
     }
 
     /// <summary>
@@ -86,10 +91,14 @@ public readonly record struct RelativePath
             ReadOnlySpan<char> segment = sep < 0 ? path : path[..sep];
 
             if (segment is "..")
+            {
                 return true;
+            }
 
             if (sep < 0)
+            {
                 break;
+            }
 
             path = path[(sep + 1)..];
         }
