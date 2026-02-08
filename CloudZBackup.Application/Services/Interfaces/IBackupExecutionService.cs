@@ -13,6 +13,7 @@ public interface IBackupExecutionService
         string sourceRoot,
         string destRoot,
         IReadOnlyCollection<RelativePath> filesToOverwrite,
+        IProgress<BackupProgress>? progress,
         CancellationToken ct
     );
 }

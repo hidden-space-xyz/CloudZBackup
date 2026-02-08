@@ -11,6 +11,7 @@ builder.Services.AddLogging(logging =>
 {
     logging.ClearProviders();
     logging.AddConsole();
+    logging.SetMinimumLevel(LogLevel.Warning);
 });
 
 builder.Services.Configure<BackupOptions>(options =>

@@ -18,14 +18,20 @@ public sealed class BackupExecutionService(
         string sourceRoot,
         string destRoot,
         IReadOnlyCollection<RelativePath> filesToOverwrite,
+        IProgress<BackupProgress>? progress,
         CancellationToken ct
     )
     {
+        int maxIoConcurrency = GetRecommendedIoConcurrency(destRoot);
+
         var ioOptions = new ParallelOptions
         {
-            MaxDegreeOfParallelism = options.Value.MaxFileIoConcurrency,
+            MaxDegreeOfParallelism = maxIoConcurrency,
             CancellationToken = ct,
         };
+
+        int totalItems = ComputeTotalItems(mode, plan, filesToOverwrite);
+        int processed = 0;
 
         int createdDirs = 0,
             copied = 0,
@@ -33,13 +39,25 @@ public sealed class BackupExecutionService(
             deletedFiles = 0,
             deletedDirs = 0;
 
+        void ReportProgress(string phase)
+        {
+            int current = Interlocked.Increment(ref processed);
+            progress?.Report(new BackupProgress(phase, current, totalItems));
+        }
+
+        progress?.Report(new BackupProgress("Preparing", 0, totalItems));
+
         if (mode is BackupMode.Sync or BackupMode.Add)
         {
             await CreateDirectoriesAsync(
                 plan.DirsToCreate,
                 destRoot,
                 ioOptions,
-                () => Interlocked.Increment(ref createdDirs)
+                () =>
+                {
+                    Interlocked.Increment(ref createdDirs);
+                    ReportProgress("Creating directories");
+                }
             );
 
             await CopyMissingFilesAsync(
@@ -48,7 +66,11 @@ public sealed class BackupExecutionService(
                 sourceRoot,
                 destRoot,
                 ioOptions,
-                () => Interlocked.Increment(ref copied)
+                () =>
+                {
+                    Interlocked.Increment(ref copied);
+                    ReportProgress("Copying files");
+                }
             );
 
             if (mode == BackupMode.Sync && filesToOverwrite.Count > 0)
@@ -59,7 +81,11 @@ public sealed class BackupExecutionService(
                     sourceRoot,
                     destRoot,
                     ioOptions,
-                    () => Interlocked.Increment(ref overwritten)
+                    () =>
+                    {
+                        Interlocked.Increment(ref overwritten);
+                        ReportProgress("Overwriting files");
+                    }
                 );
             }
         }
@@ -70,7 +96,11 @@ public sealed class BackupExecutionService(
                 plan.ExtraFiles,
                 destRoot,
                 ioOptions,
-                () => Interlocked.Increment(ref deletedFiles)
+                () =>
+                {
+                    Interlocked.Increment(ref deletedFiles);
+                    ReportProgress("Deleting files");
+                }
             );
 
             foreach (RelativePath relDir in plan.TopLevelExtraDirs)
@@ -80,6 +110,7 @@ public sealed class BackupExecutionService(
                 string full = fileSystem.Combine(destRoot, relDir);
                 fileSystem.DeleteDirectoryIfExists(full, recursive: true);
                 deletedDirs++;
+                ReportProgress("Deleting directories");
             }
         }
 
@@ -90,6 +121,55 @@ public sealed class BackupExecutionService(
             deletedFiles,
             deletedDirs
         );
+    }
+
+    private int GetRecommendedIoConcurrency(string destinationRoot)
+    {
+        try
+        {
+            string? root = Path.GetPathRoot(destinationRoot);
+
+            if (string.IsNullOrWhiteSpace(root))
+                return options.Value.MaxFileIoConcurrency;
+
+            DriveInfo drive = new(root);
+
+            return drive.DriveType switch
+            {
+                DriveType.CDRom or DriveType.Network or DriveType.Removable => 1,
+                _ => options.Value.MaxFileIoConcurrency,
+            };
+        }
+        catch
+        {
+            return options.Value.MaxFileIoConcurrency;
+        }
+    }
+
+    private static int ComputeTotalItems(
+        BackupMode mode,
+        Plan plan,
+        IReadOnlyCollection<RelativePath> filesToOverwrite
+    )
+    {
+        int total = 0;
+
+        if (mode is BackupMode.Sync or BackupMode.Add)
+        {
+            total += plan.DirsToCreate.Count;
+            total += plan.MissingFiles.Count;
+
+            if (mode == BackupMode.Sync)
+                total += filesToOverwrite.Count;
+        }
+
+        if (mode is BackupMode.Sync or BackupMode.Remove)
+        {
+            total += plan.ExtraFiles.Count;
+            total += plan.TopLevelExtraDirs.Count;
+        }
+
+        return total;
     }
 
     private async Task CopyMissingFilesAsync(

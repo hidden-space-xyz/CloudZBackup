@@ -1,8 +1,8 @@
-﻿using System.Collections.Concurrent;
-using CloudZBackup.Application.Services.Interfaces;
+﻿using CloudZBackup.Application.Services.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.ValueObjects;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 
 namespace CloudZBackup.Application.Services;
 

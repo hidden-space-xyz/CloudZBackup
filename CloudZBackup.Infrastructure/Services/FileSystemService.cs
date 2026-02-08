@@ -2,7 +2,6 @@
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using CloudZBackup.Domain.ValueObjects;
-using Microsoft.Extensions.Logging;
 
 namespace CloudZBackup.Infrastructure.Services;
 

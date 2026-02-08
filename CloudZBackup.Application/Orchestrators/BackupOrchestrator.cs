@@ -18,6 +18,7 @@ public sealed class BackupOrchestrator(
 {
     public async Task<BackupResult> ExecuteAsync(
         BackupRequest request,
+        IProgress<BackupProgress>? progress,
         CancellationToken cancellationToken
     )
     {
@@ -73,6 +74,7 @@ public sealed class BackupOrchestrator(
             sourceRoot: sourceRoot,
             destRoot: destRoot,
             filesToOverwrite: filesToOverwrite,
+            progress: progress,
             ct: cancellationToken
         );
 
