@@ -5,7 +5,7 @@
 <img alt="License" src="https://img.shields.io/badge/GPL--3.0-red?style=for-the-badge" />
 </p>
 
-# ☁️ CloudZBackup
+# 💾 CloudZBackup
 
 **CloudZBackup is a console tool to securely and efficiently synchronize and maintain backups between folders.**
 
