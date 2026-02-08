@@ -61,7 +61,7 @@ We're committed to continuously improving CloudZCrypt based on user feedback and
 
 ## 📸 Screenshots
 
-*Pending.*
+<img width="1097" height="554" alt="image" src="https://github.com/user-attachments/assets/1ed126e7-9a3f-4526-bdef-0ffba90f82ce" />
 
 ## 💡How to Contribute
 
