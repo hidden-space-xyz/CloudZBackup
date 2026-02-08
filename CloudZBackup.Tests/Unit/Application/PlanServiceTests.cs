@@ -10,12 +10,14 @@ namespace CloudZBackup.Tests.Unit.Application;
 public sealed class PlanServiceTests
 {
     private readonly PlanService _sut = new();
-    private readonly IEqualityComparer<RelativePath> _comparer =
-        new RelativePathComparer(OperatingSystem.IsWindows());
+    private readonly IEqualityComparer<RelativePath> _comparer = new RelativePathComparer(
+        OperatingSystem.IsWindows()
+    );
 
     private Snapshot CreateSnapshot(
         IEnumerable<string>? filePaths = null,
-        IEnumerable<string>? dirPaths = null)
+        IEnumerable<string>? dirPaths = null
+    )
     {
         var files = new Dictionary<RelativePath, FileEntry>(_comparer);
         var dirs = new HashSet<RelativePath>(_comparer);
@@ -35,14 +37,8 @@ public sealed class PlanServiceTests
     [Test]
     public void BuildPlan_SyncMode_IdentifiesMissingCommonAndExtraFiles()
     {
-        Snapshot source = CreateSnapshot(
-            filePaths: ["shared.txt", "new.txt"],
-            dirPaths: ["dirA"]
-        );
-        Snapshot dest = CreateSnapshot(
-            filePaths: ["shared.txt", "old.txt"],
-            dirPaths: ["dirB"]
-        );
+        Snapshot source = CreateSnapshot(filePaths: ["shared.txt", "new.txt"], dirPaths: ["dirA"]);
+        Snapshot dest = CreateSnapshot(filePaths: ["shared.txt", "old.txt"], dirPaths: ["dirB"]);
 
         Plan plan = _sut.BuildPlan(BackupMode.Sync, source, dest);
 
@@ -58,14 +54,8 @@ public sealed class PlanServiceTests
     [Test]
     public void BuildPlan_AddMode_OnlyIdentifiesMissingFilesAndDirs_NoExtras()
     {
-        Snapshot source = CreateSnapshot(
-            filePaths: ["shared.txt", "new.txt"],
-            dirPaths: ["dirA"]
-        );
-        Snapshot dest = CreateSnapshot(
-            filePaths: ["shared.txt", "old.txt"],
-            dirPaths: ["dirB"]
-        );
+        Snapshot source = CreateSnapshot(filePaths: ["shared.txt", "new.txt"], dirPaths: ["dirA"]);
+        Snapshot dest = CreateSnapshot(filePaths: ["shared.txt", "old.txt"], dirPaths: ["dirB"]);
 
         Plan plan = _sut.BuildPlan(BackupMode.Add, source, dest);
 
@@ -82,10 +72,7 @@ public sealed class PlanServiceTests
     [Test]
     public void BuildPlan_RemoveMode_OnlyIdentifiesExtraFilesAndDirs()
     {
-        Snapshot source = CreateSnapshot(
-            filePaths: ["shared.txt"],
-            dirPaths: ["dirA"]
-        );
+        Snapshot source = CreateSnapshot(filePaths: ["shared.txt"], dirPaths: ["dirA"]);
         Snapshot dest = CreateSnapshot(
             filePaths: ["shared.txt", "extra.txt"],
             dirPaths: ["dirA", "extraDir"]
@@ -99,7 +86,10 @@ public sealed class PlanServiceTests
             Assert.That(plan.CommonFiles, Is.Empty);
             Assert.That(plan.DirectoriesToCreate, Is.Empty);
             Assert.That(plan.ExtraFiles.Select(f => f.Value), Does.Contain("extra.txt"));
-            Assert.That(plan.TopLevelExtraDirectories.Select(d => d.Value), Does.Contain("extraDir"));
+            Assert.That(
+                plan.TopLevelExtraDirectories.Select(d => d.Value),
+                Does.Contain("extraDir")
+            );
         });
     }
 
@@ -145,9 +135,7 @@ public sealed class PlanServiceTests
     [Test]
     public void BuildPlan_SyncMode_DirectoriesToCreate_SortedByPathLength()
     {
-        Snapshot source = CreateSnapshot(
-            dirPaths: ["a/b/c", "a", "a/b"]
-        );
+        Snapshot source = CreateSnapshot(dirPaths: ["a/b/c", "a", "a/b"]);
         Snapshot dest = CreateSnapshot();
 
         Plan plan = _sut.BuildPlan(BackupMode.Sync, source, dest);

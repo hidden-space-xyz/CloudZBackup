@@ -15,7 +15,11 @@ public sealed class FileSystemServiceTests
     public void SetUp()
     {
         _sut = new FileSystemService();
-        _testRoot = Path.Combine(Path.GetTempPath(), "CloudZBackupFsTests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Combine(
+            Path.GetTempPath(),
+            "CloudZBackupFsTests",
+            Guid.NewGuid().ToString("N")
+        );
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -83,8 +87,9 @@ public sealed class FileSystemServiceTests
     [Test]
     public void EnsureSourceExists_ThrowsForMissingDirectory()
     {
-        Assert.Throws<DirectoryNotFoundException>(
-            () => _sut.EnsureSourceExists(Path.Combine(_testRoot, "missing")));
+        Assert.Throws<DirectoryNotFoundException>(() =>
+            _sut.EnsureSourceExists(Path.Combine(_testRoot, "missing"))
+        );
     }
 
     [Test]
@@ -198,8 +203,7 @@ public sealed class FileSystemServiceTests
         string source = Path.Combine(_testRoot, "parent");
         string dest = Path.Combine(source, "child");
 
-        Assert.Throws<InvalidOperationException>(
-            () => _sut.ValidateNoOverlap(source, dest));
+        Assert.Throws<InvalidOperationException>(() => _sut.ValidateNoOverlap(source, dest));
     }
 
     [Test]
@@ -208,8 +212,7 @@ public sealed class FileSystemServiceTests
         string dest = Path.Combine(_testRoot, "parent");
         string source = Path.Combine(dest, "child");
 
-        Assert.Throws<InvalidOperationException>(
-            () => _sut.ValidateNoOverlap(source, dest));
+        Assert.Throws<InvalidOperationException>(() => _sut.ValidateNoOverlap(source, dest));
     }
 
     [Test]

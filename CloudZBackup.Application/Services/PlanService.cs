@@ -62,7 +62,13 @@ public sealed class PlanService : IPlanService
             topLevelExtraDirectories = ComputeTopLevelDirectories(extraDirs);
         }
 
-        return new Plan(directoriesToCreate, missingFiles, commonFiles, extraFiles, topLevelExtraDirectories);
+        return new Plan(
+            directoriesToCreate,
+            missingFiles,
+            commonFiles,
+            extraFiles,
+            topLevelExtraDirectories
+        );
     }
 
     /// <summary>

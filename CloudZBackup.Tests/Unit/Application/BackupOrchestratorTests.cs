@@ -31,35 +31,49 @@ public sealed class BackupOrchestratorTests
         var logger = NullLogger<BackupOrchestrator>.Instance;
 
         _sut = new BackupOrchestrator(
-            _snapshotService, _planService, _overwriteDetection,
-            _executionService, _fileSystem, logger);
+            _snapshotService,
+            _planService,
+            _overwriteDetection,
+            _executionService,
+            _fileSystem,
+            logger
+        );
     }
 
     private void SetupValidRequest(BackupRequest request, bool destCreated = false)
     {
-        _fileSystem.ValidateAndNormalize(request)
+        _fileSystem
+            .ValidateAndNormalize(request)
             .Returns((request.SourcePath, request.DestinationPath));
-        _fileSystem.PrepareDestination(request.Mode, request.DestinationPath)
-            .Returns(destCreated);
+        _fileSystem.PrepareDestination(request.Mode, request.DestinationPath).Returns(destCreated);
 
         var emptySnapshot = new Snapshot(
             new Dictionary<RelativePath, FileEntry>(),
-            new HashSet<RelativePath>());
+            new HashSet<RelativePath>()
+        );
 
-        _snapshotService.CaptureSnapshot(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+        _snapshotService
+            .CaptureSnapshot(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(emptySnapshot);
         _snapshotService.CreateEmptySnapshot().Returns(emptySnapshot);
 
         var emptyPlan = new Plan([], [], [], [], []);
-        _planService.BuildPlan(Arg.Any<BackupMode>(), Arg.Any<Snapshot>(), Arg.Any<Snapshot>())
+        _planService
+            .BuildPlan(Arg.Any<BackupMode>(), Arg.Any<Snapshot>(), Arg.Any<Snapshot>())
             .Returns(emptyPlan);
 
         var expectedResult = new BackupResult(0, 0, 0, 0, 0);
-        _executionService.ExecuteAsync(
-            Arg.Any<BackupMode>(), Arg.Any<Plan>(), Arg.Any<Snapshot>(),
-            Arg.Any<string>(), Arg.Any<string>(),
-            Arg.Any<IReadOnlyCollection<RelativePath>>(),
-            Arg.Any<IProgress<BackupProgress>?>(), Arg.Any<CancellationToken>())
+        _executionService
+            .ExecuteAsync(
+                Arg.Any<BackupMode>(),
+                Arg.Any<Plan>(),
+                Arg.Any<Snapshot>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyCollection<RelativePath>>(),
+                Arg.Any<IProgress<BackupProgress>?>(),
+                Arg.Any<CancellationToken>()
+            )
             .Returns(expectedResult);
     }
 
@@ -99,41 +113,61 @@ public sealed class BackupOrchestratorTests
         var entry = new FileEntry(commonFile, 100, BaseTime);
         var sourceSnapshot = new Snapshot(
             new Dictionary<RelativePath, FileEntry> { [commonFile] = entry },
-            new HashSet<RelativePath>());
+            new HashSet<RelativePath>()
+        );
         var destSnapshot = new Snapshot(
             new Dictionary<RelativePath, FileEntry> { [commonFile] = entry },
-            new HashSet<RelativePath>());
+            new HashSet<RelativePath>()
+        );
 
-        _snapshotService.CaptureSnapshot("/src", Arg.Any<bool>(), Arg.Any<CancellationToken>())
+        _snapshotService
+            .CaptureSnapshot("/src", Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(sourceSnapshot);
-        _snapshotService.CaptureSnapshot("/dst", Arg.Any<bool>(), Arg.Any<CancellationToken>())
+        _snapshotService
+            .CaptureSnapshot("/dst", Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(destSnapshot);
 
         var planWithCommon = new Plan([], [], [commonFile], [], []);
-        _planService.BuildPlan(BackupMode.Sync, Arg.Any<Snapshot>(), Arg.Any<Snapshot>())
+        _planService
+            .BuildPlan(BackupMode.Sync, Arg.Any<Snapshot>(), Arg.Any<Snapshot>())
             .Returns(planWithCommon);
 
-        _overwriteDetection.ComputeFilesToOverwriteAsync(
-            Arg.Any<IReadOnlyList<RelativePath>>(),
-            Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
-            Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
-            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _overwriteDetection
+            .ComputeFilesToOverwriteAsync(
+                Arg.Any<IReadOnlyList<RelativePath>>(),
+                Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
+                Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>()
+            )
             .Returns(new List<RelativePath>());
 
-        _executionService.ExecuteAsync(
-            Arg.Any<BackupMode>(), Arg.Any<Plan>(), Arg.Any<Snapshot>(),
-            Arg.Any<string>(), Arg.Any<string>(),
-            Arg.Any<IReadOnlyCollection<RelativePath>>(),
-            Arg.Any<IProgress<BackupProgress>?>(), Arg.Any<CancellationToken>())
+        _executionService
+            .ExecuteAsync(
+                Arg.Any<BackupMode>(),
+                Arg.Any<Plan>(),
+                Arg.Any<Snapshot>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyCollection<RelativePath>>(),
+                Arg.Any<IProgress<BackupProgress>?>(),
+                Arg.Any<CancellationToken>()
+            )
             .Returns(new BackupResult(0, 0, 0, 0, 0));
 
         await _sut.ExecuteAsync(request, null, CancellationToken.None);
 
-        await _overwriteDetection.Received(1).ComputeFilesToOverwriteAsync(
-            Arg.Any<IReadOnlyList<RelativePath>>(),
-            Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
-            Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
-            "/src", "/dst", Arg.Any<CancellationToken>());
+        await _overwriteDetection
+            .Received(1)
+            .ComputeFilesToOverwriteAsync(
+                Arg.Any<IReadOnlyList<RelativePath>>(),
+                Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
+                Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
+                "/src",
+                "/dst",
+                Arg.Any<CancellationToken>()
+            );
     }
 
     [Test]
@@ -144,11 +178,16 @@ public sealed class BackupOrchestratorTests
 
         await _sut.ExecuteAsync(request, null, CancellationToken.None);
 
-        await _overwriteDetection.DidNotReceive().ComputeFilesToOverwriteAsync(
-            Arg.Any<IReadOnlyList<RelativePath>>(),
-            Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
-            Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
-            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _overwriteDetection
+            .DidNotReceive()
+            .ComputeFilesToOverwriteAsync(
+                Arg.Any<IReadOnlyList<RelativePath>>(),
+                Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
+                Arg.Any<IReadOnlyDictionary<RelativePath, FileEntry>>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>()
+            );
     }
 
     [Test]
@@ -156,10 +195,12 @@ public sealed class BackupOrchestratorTests
     {
         var request = new BackupRequest("/src", "/dst", BackupMode.Sync);
         _fileSystem.ValidateAndNormalize(request).Returns(("/src", "/dst"));
-        _fileSystem.When(x => x.ValidateNoOverlap("/src", "/dst"))
+        _fileSystem
+            .When(x => x.ValidateNoOverlap("/src", "/dst"))
             .Do(_ => throw new InvalidOperationException("Overlap"));
 
-        Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.ExecuteAsync(request, null, CancellationToken.None));
+        Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _sut.ExecuteAsync(request, null, CancellationToken.None)
+        );
     }
 }

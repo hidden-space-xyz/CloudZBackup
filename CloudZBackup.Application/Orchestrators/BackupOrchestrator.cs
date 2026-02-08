@@ -56,16 +56,18 @@ public sealed class BackupOrchestrator(
         else
         {
             Parallel.Invoke(
-                () => sourceSnapshot = snapshotService.CaptureSnapshot(
-                    sourceRoot,
-                    needSourceMeta,
-                    cancellationToken
-                ),
-                () => destSnapshot = snapshotService.CaptureSnapshot(
-                    destRoot,
-                    needDestMeta,
-                    cancellationToken
-                )
+                () =>
+                    sourceSnapshot = snapshotService.CaptureSnapshot(
+                        sourceRoot,
+                        needSourceMeta,
+                        cancellationToken
+                    ),
+                () =>
+                    destSnapshot = snapshotService.CaptureSnapshot(
+                        destRoot,
+                        needDestMeta,
+                        cancellationToken
+                    )
             );
         }
 

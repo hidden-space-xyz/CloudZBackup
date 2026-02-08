@@ -1,9 +1,9 @@
+using System.Diagnostics;
+using System.Text;
 using CloudZBackup.Application.Orchestrators.Interfaces;
 using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.Enums;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
-using System.Text;
 
 namespace CloudZBackup.Terminal;
 
@@ -127,7 +127,7 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     private static void PrintKeyValue(string key, string value)
     {
         Console.Write("     ");
-        WriteColored($"{key,-14}", ConsoleColor.Gray, false);
+        WriteColored($"{key, -14}", ConsoleColor.Gray, false);
         WriteColored(value, ConsoleColor.White);
     }
 
@@ -140,11 +140,12 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         Console.WriteLine();
         PrintSection("Summary");
 
-        int total = result.DirectoriesCreated
-                  + result.FilesCopied
-                  + result.FilesOverwritten
-                  + result.FilesDeleted
-                  + result.DirectoriesDeleted;
+        int total =
+            result.DirectoriesCreated
+            + result.FilesCopied
+            + result.FilesOverwritten
+            + result.FilesDeleted
+            + result.DirectoriesDeleted;
 
         Console.Write("     ");
         WriteColored("┌──────────────────────┬────────┐", ConsoleColor.DarkGray);
@@ -169,13 +170,17 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     /// <summary>
     /// Prints a single row of the results summary table.
     /// </summary>
-    private static void PrintTableRow(string label, int value, ConsoleColor valueColor = ConsoleColor.White)
+    private static void PrintTableRow(
+        string label,
+        int value,
+        ConsoleColor valueColor = ConsoleColor.White
+    )
     {
         Console.Write("     ");
         WriteColored("│ ", ConsoleColor.DarkGray, false);
-        WriteColored($"{label,-20}", ConsoleColor.Gray, false);
+        WriteColored($"{label, -20}", ConsoleColor.Gray, false);
         WriteColored(" │ ", ConsoleColor.DarkGray, false);
-        WriteColored($"{value,6}", valueColor, false);
+        WriteColored($"{value, 6}", valueColor, false);
         WriteColored(" │", ConsoleColor.DarkGray);
     }
 
@@ -254,13 +259,18 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
             WriteColored(new string('█', filled), barColor, false);
             WriteColored(new string('░', empty), ConsoleColor.DarkGray, false);
             WriteColored("]", ConsoleColor.DarkGray, false);
-            WriteColored($" {percent,3}%", ConsoleColor.White, false);
+            WriteColored($" {percent, 3}%", ConsoleColor.White, false);
             WriteColored($" ({p.ProcessedItems}/{p.TotalItems})", ConsoleColor.Gray, false);
             WriteColored($" {p.Phase}", ConsoleColor.DarkYellow, false);
 
             try
             {
-                int written = 7 + BarWidth + 6 + $" ({p.ProcessedItems}/{p.TotalItems})".Length + $" {p.Phase}".Length;
+                int written =
+                    7
+                    + BarWidth
+                    + 6
+                    + $" ({p.ProcessedItems}/{p.TotalItems})".Length
+                    + $" {p.Phase}".Length;
                 if (written < Console.WindowWidth)
                     Console.Write(new string(' ', Console.WindowWidth - written - 1));
             }
@@ -307,11 +317,10 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     /// <summary>
     /// Formats a <see cref="TimeSpan"/> into a human-readable short string.
     /// </summary>
-    private static string FormatElapsed(TimeSpan ts) => ts.TotalSeconds < 1
-        ? $"{ts.TotalMilliseconds:F0} ms"
-        : ts.TotalMinutes < 1
-            ? $"{ts.TotalSeconds:F1} s"
-            : $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
+    private static string FormatElapsed(TimeSpan ts) =>
+        ts.TotalSeconds < 1 ? $"{ts.TotalMilliseconds:F0} ms"
+        : ts.TotalMinutes < 1 ? $"{ts.TotalSeconds:F1} s"
+        : $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
 
     /// <summary>
     /// Retrieves the value associated with a command-line argument key, or <see langword="null"/> if not found.

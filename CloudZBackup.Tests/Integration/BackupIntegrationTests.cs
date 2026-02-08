@@ -23,7 +23,11 @@ public sealed class BackupIntegrationTests
     [SetUp]
     public void SetUp()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "CloudZBackupTests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Combine(
+            Path.GetTempPath(),
+            "CloudZBackupTests",
+            Guid.NewGuid().ToString("N")
+        );
         _sourceDir = Path.Combine(_testRoot, "source");
         _destDir = Path.Combine(_testRoot, "dest");
         Directory.CreateDirectory(_sourceDir);
@@ -40,7 +44,9 @@ public sealed class BackupIntegrationTests
     {
         IFileSystemService fileSystem = new FileSystemService();
         IHashingService hashing = new HashingService();
-        var options = Options.Create(new BackupOptions { MaxHashConcurrency = 1, MaxFileIoConcurrency = 1 });
+        var options = Options.Create(
+            new BackupOptions { MaxHashConcurrency = 1, MaxFileIoConcurrency = 1 }
+        );
 
         var snapshotService = new SnapshotService(fileSystem);
         var planService = new PlanService();
@@ -49,8 +55,13 @@ public sealed class BackupIntegrationTests
         var logger = NullLogger<BackupOrchestrator>.Instance;
 
         return new BackupOrchestrator(
-            snapshotService, planService, overwriteDetection,
-            executionService, fileSystem, logger);
+            snapshotService,
+            planService,
+            overwriteDetection,
+            executionService,
+            fileSystem,
+            logger
+        );
     }
 
     private void CreateSourceFile(string relativePath, string content)
@@ -80,7 +91,11 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Sync);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -89,7 +104,10 @@ public sealed class BackupIntegrationTests
             Assert.That(File.Exists(Path.Combine(_destDir, "file1.txt")), Is.True);
             Assert.That(File.Exists(Path.Combine(_destDir, "sub", "file2.txt")), Is.True);
             Assert.That(File.ReadAllText(Path.Combine(_destDir, "file1.txt")), Is.EqualTo("hello"));
-            Assert.That(File.ReadAllText(Path.Combine(_destDir, "sub", "file2.txt")), Is.EqualTo("world"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(_destDir, "sub", "file2.txt")),
+                Is.EqualTo("world")
+            );
         });
     }
 
@@ -106,7 +124,11 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Sync);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -126,23 +148,25 @@ public sealed class BackupIntegrationTests
         CreateDestFile("data.txt", "old content");
 
         // Ensure different timestamps
-        File.SetLastWriteTimeUtc(
-            Path.Combine(_sourceDir, "data.txt"),
-            DateTime.UtcNow);
-        File.SetLastWriteTimeUtc(
-            Path.Combine(_destDir, "data.txt"),
-            DateTime.UtcNow.AddDays(-1));
+        File.SetLastWriteTimeUtc(Path.Combine(_sourceDir, "data.txt"), DateTime.UtcNow);
+        File.SetLastWriteTimeUtc(Path.Combine(_destDir, "data.txt"), DateTime.UtcNow.AddDays(-1));
 
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Sync);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
             Assert.That(result.FilesOverwritten, Is.EqualTo(1));
-            Assert.That(File.ReadAllText(Path.Combine(_destDir, "data.txt")),
-                Is.EqualTo("updated content"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(_destDir, "data.txt")),
+                Is.EqualTo("updated content")
+            );
         });
     }
 
@@ -162,7 +186,11 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Sync);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.That(result.FilesOverwritten, Is.EqualTo(0));
     }
@@ -180,7 +208,11 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Add);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -189,8 +221,10 @@ public sealed class BackupIntegrationTests
             Assert.That(result.DirectoriesDeleted, Is.EqualTo(0));
             Assert.That(File.Exists(Path.Combine(_destDir, "new.txt")), Is.True);
             Assert.That(File.Exists(Path.Combine(_destDir, "destonly.txt")), Is.True);
-            Assert.That(File.ReadAllText(Path.Combine(_destDir, "shared.txt")),
-                Is.EqualTo("dest version"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(_destDir, "shared.txt")),
+                Is.EqualTo("dest version")
+            );
         });
     }
 
@@ -203,7 +237,11 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Add);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -226,7 +264,11 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Remove);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -249,7 +291,11 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Remove);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -266,7 +312,11 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Remove);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -285,8 +335,9 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(nonExistent, _destDir, BackupMode.Sync);
 
-        Assert.ThrowsAsync<DirectoryNotFoundException>(
-            () => orchestrator.ExecuteAsync(request, null, CancellationToken.None));
+        Assert.ThrowsAsync<DirectoryNotFoundException>(() =>
+            orchestrator.ExecuteAsync(request, null, CancellationToken.None)
+        );
     }
 
     [Test]
@@ -298,8 +349,9 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, nested, BackupMode.Sync);
 
-        Assert.ThrowsAsync<InvalidOperationException>(
-            () => orchestrator.ExecuteAsync(request, null, CancellationToken.None));
+        Assert.ThrowsAsync<InvalidOperationException>(() =>
+            orchestrator.ExecuteAsync(request, null, CancellationToken.None)
+        );
     }
 
     [Test]
@@ -318,7 +370,8 @@ public sealed class BackupIntegrationTests
         // TaskCanceledException derives from OperationCanceledException
         Assert.That(
             async () => await orchestrator.ExecuteAsync(request, null, cts.Token),
-            Throws.InstanceOf<OperationCanceledException>());
+            Throws.InstanceOf<OperationCanceledException>()
+        );
     }
 
     [Test]
@@ -329,13 +382,19 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Sync);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
             Assert.That(result.FilesCopied, Is.EqualTo(1));
-            Assert.That(File.ReadAllText(Path.Combine(_destDir, "timed.txt")),
-                Is.EqualTo("timed content"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(_destDir, "timed.txt")),
+                Is.EqualTo("timed content")
+            );
         });
     }
 
@@ -348,12 +407,19 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Sync);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
             Assert.That(result.FilesCopied, Is.EqualTo(2));
-            Assert.That(File.Exists(Path.Combine(_destDir, "a", "b", "c", "d", "deep.txt")), Is.True);
+            Assert.That(
+                File.Exists(Path.Combine(_destDir, "a", "b", "c", "d", "deep.txt")),
+                Is.True
+            );
             Assert.That(File.Exists(Path.Combine(_destDir, "a", "b", "sibling.txt")), Is.True);
         });
     }
@@ -369,7 +435,11 @@ public sealed class BackupIntegrationTests
         var orchestrator = CreateOrchestrator();
         var request = new BackupRequest(_sourceDir, _destDir, BackupMode.Sync);
 
-        BackupResult result = await orchestrator.ExecuteAsync(request, null, CancellationToken.None);
+        BackupResult result = await orchestrator.ExecuteAsync(
+            request,
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {

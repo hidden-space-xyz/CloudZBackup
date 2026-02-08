@@ -23,12 +23,12 @@ public sealed class BackupExecutionServiceTests
         var options = Options.Create(new BackupOptions { MaxFileIoConcurrency = 1 });
         _sut = new BackupExecutionService(_fileSystem, options);
 
-        _fileSystem.Combine(Arg.Any<string>(), Arg.Any<RelativePath>())
+        _fileSystem
+            .Combine(Arg.Any<string>(), Arg.Any<RelativePath>())
             .Returns(ci => $"{ci.ArgAt<string>(0)}/{ci.ArgAt<RelativePath>(1).Value}");
     }
 
-    private static Plan CreateEmptyPlan() =>
-        new([], [], [], [], []);
+    private static Plan CreateEmptyPlan() => new([], [], [], [], []);
 
     private static Snapshot CreateSnapshot(params string[] filePaths)
     {
@@ -50,8 +50,15 @@ public sealed class BackupExecutionServiceTests
         Snapshot source = CreateSnapshot("newfile.txt");
 
         BackupResult result = await _sut.ExecuteAsync(
-            BackupMode.Add, plan, source, "/src", "/dst",
-            [], null, CancellationToken.None);
+            BackupMode.Add,
+            plan,
+            source,
+            "/src",
+            "/dst",
+            [],
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -63,9 +70,15 @@ public sealed class BackupExecutionServiceTests
         });
 
         _fileSystem.Received(1).CreateDirectory("/dst/newdir");
-        await _fileSystem.Received(1).CopyFileAsync(
-            "/src/newfile.txt", "/dst/newfile.txt",
-            false, BaseTime, Arg.Any<CancellationToken>());
+        await _fileSystem
+            .Received(1)
+            .CopyFileAsync(
+                "/src/newfile.txt",
+                "/dst/newfile.txt",
+                false,
+                BaseTime,
+                Arg.Any<CancellationToken>()
+            );
     }
 
     [Test]
@@ -82,8 +95,15 @@ public sealed class BackupExecutionServiceTests
         Snapshot source = CreateSnapshot("new.txt", "common.txt");
 
         BackupResult result = await _sut.ExecuteAsync(
-            BackupMode.Sync, plan, source, "/src", "/dst",
-            [fileToOverwrite], null, CancellationToken.None);
+            BackupMode.Sync,
+            plan,
+            source,
+            "/src",
+            "/dst",
+            [fileToOverwrite],
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -104,8 +124,15 @@ public sealed class BackupExecutionServiceTests
         Snapshot source = CreateSnapshot();
 
         BackupResult result = await _sut.ExecuteAsync(
-            BackupMode.Remove, plan, source, "/src", "/dst",
-            [], null, CancellationToken.None);
+            BackupMode.Remove,
+            plan,
+            source,
+            "/src",
+            "/dst",
+            [],
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -123,8 +150,15 @@ public sealed class BackupExecutionServiceTests
     public async Task Execute_EmptyPlan_ReturnsZeroCounts()
     {
         BackupResult result = await _sut.ExecuteAsync(
-            BackupMode.Sync, CreateEmptyPlan(), CreateSnapshot(),
-            "/src", "/dst", [], null, CancellationToken.None);
+            BackupMode.Sync,
+            CreateEmptyPlan(),
+            CreateSnapshot(),
+            "/src",
+            "/dst",
+            [],
+            null,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -147,8 +181,15 @@ public sealed class BackupExecutionServiceTests
         var progress = new Progress<BackupProgress>(p => reported.Add(p));
 
         await _sut.ExecuteAsync(
-            BackupMode.Add, plan, source, "/src", "/dst",
-            [], progress, CancellationToken.None);
+            BackupMode.Add,
+            plan,
+            source,
+            "/src",
+            "/dst",
+            [],
+            progress,
+            CancellationToken.None
+        );
 
         // Allow progress callbacks to be delivered (they may be posted asynchronously)
         await Task.Delay(100);

@@ -24,16 +24,22 @@ public sealed class SnapshotServiceTests
     {
         string root = "/source";
 
-        _fileSystem.EnumerateDirectoriesRecursive(root)
-            .Returns(["/source/subdir"]);
-        _fileSystem.EnumerateFilesRecursive(root)
+        _fileSystem.EnumerateDirectoriesRecursive(root).Returns(["/source/subdir"]);
+        _fileSystem
+            .EnumerateFilesRecursive(root)
             .Returns(["/source/file1.txt", "/source/subdir/file2.txt"]);
-        _fileSystem.GetFileMetadata("/source/file1.txt")
+        _fileSystem
+            .GetFileMetadata("/source/file1.txt")
             .Returns(new FileMetadata(100, new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
-        _fileSystem.GetFileMetadata("/source/subdir/file2.txt")
+        _fileSystem
+            .GetFileMetadata("/source/subdir/file2.txt")
             .Returns(new FileMetadata(200, new DateTime(2024, 2, 1, 0, 0, 0, DateTimeKind.Utc)));
 
-        Snapshot result = _sut.CaptureSnapshot(root, includeFileMetadata: true, CancellationToken.None);
+        Snapshot result = _sut.CaptureSnapshot(
+            root,
+            includeFileMetadata: true,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -50,7 +56,11 @@ public sealed class SnapshotServiceTests
         _fileSystem.EnumerateDirectoriesRecursive(root).Returns([]);
         _fileSystem.EnumerateFilesRecursive(root).Returns(["/source/file.txt"]);
 
-        Snapshot result = _sut.CaptureSnapshot(root, includeFileMetadata: false, CancellationToken.None);
+        Snapshot result = _sut.CaptureSnapshot(
+            root,
+            includeFileMetadata: false,
+            CancellationToken.None
+        );
 
         FileEntry entry = result.Files.Values.Single();
         Assert.Multiple(() =>
@@ -67,7 +77,11 @@ public sealed class SnapshotServiceTests
         _fileSystem.EnumerateDirectoriesRecursive(root).Returns([]);
         _fileSystem.EnumerateFilesRecursive(root).Returns([]);
 
-        Snapshot result = _sut.CaptureSnapshot(root, includeFileMetadata: true, CancellationToken.None);
+        Snapshot result = _sut.CaptureSnapshot(
+            root,
+            includeFileMetadata: true,
+            CancellationToken.None
+        );
 
         Assert.Multiple(() =>
         {
@@ -87,8 +101,8 @@ public sealed class SnapshotServiceTests
         var dirs = Enumerable.Range(0, 300).Select(i => $"/source/dir{i}").ToList();
         _fileSystem.EnumerateDirectoriesRecursive(root).Returns(dirs);
 
-        Assert.Throws<OperationCanceledException>(
-            () => _sut.CaptureSnapshot(root, true, cts.Token)
+        Assert.Throws<OperationCanceledException>(() =>
+            _sut.CaptureSnapshot(root, true, cts.Token)
         );
     }
 

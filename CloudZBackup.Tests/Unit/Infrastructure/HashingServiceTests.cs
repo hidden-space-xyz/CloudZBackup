@@ -12,7 +12,11 @@ public sealed class HashingServiceTests
     public void SetUp()
     {
         _sut = new HashingService();
-        _testRoot = Path.Combine(Path.GetTempPath(), "CloudZBackupHashTests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Combine(
+            Path.GetTempPath(),
+            "CloudZBackupHashTests",
+            Guid.NewGuid().ToString("N")
+        );
         Directory.CreateDirectory(_testRoot);
     }
 

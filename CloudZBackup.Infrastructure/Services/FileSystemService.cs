@@ -37,13 +37,13 @@ public sealed class FileSystemService : IFileSystemService
         FileMode destMode = overwrite ? FileMode.Create : FileMode.CreateNew;
 
         await using FileStream source = new(
-                sourceFile,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                bufferSize: 1024 * 1024,
-                options: FileOptions.SequentialScan | FileOptions.Asynchronous
-            );
+            sourceFile,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 1024 * 1024,
+            options: FileOptions.SequentialScan | FileOptions.Asynchronous
+        );
 
         await using FileStream dest = new(
             destinationFile,
