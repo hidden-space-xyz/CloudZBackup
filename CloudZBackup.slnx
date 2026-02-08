@@ -1,19 +1,8 @@
 <Solution>
-  <Project
-    Path="CloudZBackup.Application/CloudZBackup.Application.csproj"
-    Id="82a50b15-71b0-4e1c-9493-0ba47a0ab336"
-  />
-  <Project
-    Path="CloudZBackup.Composition/CloudZBackup.Composition.csproj"
-    Id="edda9eff-da24-43fc-a46e-1eca212b4cf7"
-  />
+  <Project Path="CloudZBackup.Application/CloudZBackup.Application.csproj" Id="82a50b15-71b0-4e1c-9493-0ba47a0ab336" />
+  <Project Path="CloudZBackup.Composition/CloudZBackup.Composition.csproj" Id="edda9eff-da24-43fc-a46e-1eca212b4cf7" />
   <Project Path="CloudZBackup.Terminal/CloudZBackup.Terminal.csproj" />
-  <Project
-    Path="CloudZBackup.Domain/CloudZBackup.Domain.csproj"
-    Id="1662daa5-4870-479b-aabd-8584a94fea28"
-  />
-  <Project
-    Path="CloudZBackup.Infrastructure/CloudZBackup.Infrastructure.csproj"
-    Id="c073d8b2-d848-4d9e-b964-74fb09aa5468"
-  />
+  <Project Path="CloudZBackup.Domain/CloudZBackup.Domain.csproj" Id="1662daa5-4870-479b-aabd-8584a94fea28" />
+  <Project Path="CloudZBackup.Infrastructure/CloudZBackup.Infrastructure.csproj" Id="c073d8b2-d848-4d9e-b964-74fb09aa5468" />
+  <Project Path="CloudZBackup.Tests/CloudZBackup.Tests.csproj" />
 </Solution>
