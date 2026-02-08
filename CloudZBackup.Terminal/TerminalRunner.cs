@@ -13,6 +13,7 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     private const int ProgressRenderIntervalMs = 80;
     private readonly object progressLock = new();
     private long lastProgressTimestamp;
+    private volatile bool progressEnabled;
 
     public async Task RunAsync(string[] args, CancellationToken cancellationToken)
     {
@@ -46,30 +47,46 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
 
             PrintSection("Progress");
             var stopwatch = Stopwatch.StartNew();
+
+            progressEnabled = true;
             var progress = new Progress<BackupProgress>(RenderProgressBar);
 
             BackupResult result = await useCase.ExecuteAsync(request, progress, cancellationToken);
 
             stopwatch.Stop();
-            ClearProgressBar();
 
-            PrintResultsSummary(result, stopwatch.Elapsed);
+            lock (progressLock)
+            {
+                progressEnabled = false;
+                ClearProgressBar();
+                PrintResultsSummary(result, stopwatch.Elapsed);
+            }
+
         }
         catch (OperationCanceledException)
         {
-            ClearProgressBar();
-            Console.WriteLine();
-            PrintWarning("Operation canceled by user.");
+            lock (progressLock)
+            {
+                progressEnabled = false;
+                ClearProgressBar();
+                Console.WriteLine();
+                PrintWarning("Operation canceled by user.");
+            }
             Environment.ExitCode = 130;
         }
         catch (Exception ex)
         {
-            ClearProgressBar();
-            Console.WriteLine();
+            lock (progressLock)
+            {
+                progressEnabled = false;
+                ClearProgressBar();
+                Console.WriteLine();
+                PrintError(ex.Message);
+            }
             logger.LogError(ex, "Backup failed.");
-            PrintError(ex.Message);
             Environment.ExitCode = 1;
         }
+
     }
 
     private static void PrintBanner()
@@ -78,7 +95,7 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
         WriteColored("   ╔══════════════════════════════════════════╗", ConsoleColor.Cyan);
         WriteColored("   ║                                          ║", ConsoleColor.Cyan);
         WriteColored("   ║", ConsoleColor.Cyan, false);
-        WriteColored("        ☁  CloudZ Backup ☁                ", ConsoleColor.White, false);
+        WriteColored("            💾 CloudZBackup 💾            ", ConsoleColor.White, false);
         WriteColored("║", ConsoleColor.Cyan);
         WriteColored("   ║                                          ║", ConsoleColor.Cyan);
         WriteColored("   ╚══════════════════════════════════════════╝", ConsoleColor.Cyan);
@@ -158,6 +175,9 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     {
         lock (progressLock)
         {
+            if (!progressEnabled)
+                return;
+
             long now = Stopwatch.GetTimestamp();
             if (p.ProcessedItems < p.TotalItems && lastProgressTimestamp != 0)
             {
@@ -178,7 +198,10 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
                     if (written < Console.WindowWidth)
                         Console.Write(new string(' ', Console.WindowWidth - written - 1));
                 }
-                catch { }
+                catch
+                {
+                    // Ignore
+                }
                 return;
             }
 
@@ -209,7 +232,10 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
                 if (written < Console.WindowWidth)
                     Console.Write(new string(' ', Console.WindowWidth - written - 1));
             }
-            catch { }
+            catch
+            {
+                // Ignore
+            }
         }
     }
 
@@ -217,7 +243,11 @@ public sealed class TerminalRunner(IBackupOrchestrator useCase, ILogger<Terminal
     {
         try
         {
-            Console.Write('\r' + new string(' ', Console.WindowWidth - 1) + '\r');
+            int width = Console.BufferWidth;
+            Console.Write('\r');
+            Console.Write(new string(' ', Math.Max(0, width - 1)));
+            Console.Write('\r');
+            Console.WriteLine();
         }
         catch
         {
