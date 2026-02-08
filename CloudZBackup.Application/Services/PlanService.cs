@@ -68,23 +68,38 @@ public sealed class PlanService : IPlanService
     /// <summary>
     /// Filters a set of directories down to only those that have no ancestor in the same set,
     /// so that a recursive delete on these top-level entries covers all nested directories.
+    /// Uses a pre-built lookup of normalized values to avoid re-validating paths inside the loop.
     /// </summary>
-    private static List<RelativePath> ComputeTopLevelDirectories(HashSet<RelativePath> extras)
+    private List<RelativePath> ComputeTopLevelDirectories(HashSet<RelativePath> extras)
     {
-        return extras.Where(d => !HasAncestorInSet(d, extras)).ToList();
+        StringComparer stringComparer = OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
 
-        static bool HasAncestorInSet(RelativePath dir, HashSet<RelativePath> set)
+        HashSet<string> rawValues = new(extras.Count, stringComparer);
+        foreach (RelativePath rp in extras)
+            rawValues.Add(rp.Value);
+
+        List<RelativePath> result = new(extras.Count);
+        foreach (RelativePath d in extras)
         {
-            string value = dir.Value;
+            if (!HasAncestorInSet(d.Value, rawValues))
+                result.Add(d);
+        }
+        return result;
+
+        static bool HasAncestorInSet(string value, HashSet<string> set)
+        {
+            ReadOnlySpan<char> span = value.AsSpan();
 
             while (true)
             {
-                int idx = value.LastIndexOf('/');
+                int idx = span.LastIndexOf('/');
                 if (idx <= 0)
                     return false;
 
-                value = value[..idx];
-                if (set.Contains(new RelativePath(value)))
+                span = span[..idx];
+                if (set.Contains(span.ToString()))
                     return true;
             }
         }

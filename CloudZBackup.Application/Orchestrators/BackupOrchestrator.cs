@@ -41,14 +41,33 @@ public sealed class BackupOrchestrator(
         bool needSourceMeta = request.Mode is BackupMode.Sync or BackupMode.Add;
         bool needDestMeta = request.Mode is BackupMode.Sync;
 
-        Snapshot sourceSnapshot = snapshotService.CaptureSnapshot(
-            sourceRoot,
-            needSourceMeta,
-            cancellationToken
-        );
-        Snapshot destSnapshot = destWasCreated
-            ? snapshotService.CreateEmptySnapshot()
-            : snapshotService.CaptureSnapshot(destRoot, needDestMeta, cancellationToken);
+        Snapshot sourceSnapshot = default!;
+        Snapshot destSnapshot = default!;
+
+        if (destWasCreated)
+        {
+            destSnapshot = snapshotService.CreateEmptySnapshot();
+            sourceSnapshot = snapshotService.CaptureSnapshot(
+                sourceRoot,
+                needSourceMeta,
+                cancellationToken
+            );
+        }
+        else
+        {
+            Parallel.Invoke(
+                () => sourceSnapshot = snapshotService.CaptureSnapshot(
+                    sourceRoot,
+                    needSourceMeta,
+                    cancellationToken
+                ),
+                () => destSnapshot = snapshotService.CaptureSnapshot(
+                    destRoot,
+                    needDestMeta,
+                    cancellationToken
+                )
+            );
+        }
 
         logger.LogInformation("Planning operations for mode: {Mode}", request.Mode);
 

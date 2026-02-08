@@ -36,13 +36,13 @@ public sealed class FileSystemService : IFileSystemService
 
         FileMode destMode = overwrite ? FileMode.Create : FileMode.CreateNew;
 
-        await using FileStream source = new(
+    await using FileStream source = new(
             sourceFile,
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read,
             bufferSize: 1024 * 1024,
-            options: FileOptions.SequentialScan
+            options: FileOptions.SequentialScan | FileOptions.Asynchronous
         );
 
         await using FileStream dest = new(
@@ -51,10 +51,10 @@ public sealed class FileSystemService : IFileSystemService
             FileAccess.Write,
             FileShare.None,
             bufferSize: 1024 * 1024,
-            options: FileOptions.SequentialScan
+            options: FileOptions.SequentialScan | FileOptions.Asynchronous
         );
 
-        await source.CopyToAsync(dest, bufferSize: 1024 * 1024, cancellationToken);
+        await source.CopyToAsync(dest, cancellationToken);
 
         if (lastWriteTimeUtc.HasValue)
             File.SetLastWriteTimeUtc(destinationFile, lastWriteTimeUtc.Value);
@@ -92,16 +92,24 @@ public sealed class FileSystemService : IFileSystemService
             throw new DirectoryNotFoundException($"Source directory not found: '{sourceRoot}'.");
     }
 
+    private static readonly EnumerationOptions s_enumerationOptions = new()
+    {
+        RecurseSubdirectories = true,
+        IgnoreInaccessible = true,
+        AttributesToSkip = FileAttributes.System,
+        ReturnSpecialDirectories = false,
+    };
+
     /// <inheritdoc />
     public IEnumerable<string> EnumerateDirectoriesRecursive(string rootPath)
     {
-        return Directory.EnumerateDirectories(rootPath, "*", SearchOption.AllDirectories);
+        return Directory.EnumerateDirectories(rootPath, "*", s_enumerationOptions);
     }
 
     /// <inheritdoc />
     public IEnumerable<string> EnumerateFilesRecursive(string rootPath)
     {
-        return Directory.EnumerateFiles(rootPath, "*", SearchOption.AllDirectories);
+        return Directory.EnumerateFiles(rootPath, "*", s_enumerationOptions);
     }
 
     /// <inheritdoc />

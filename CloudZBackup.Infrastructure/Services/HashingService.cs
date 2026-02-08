@@ -20,11 +20,9 @@ public sealed class HashingService : IHashingService
             FileAccess.Read,
             FileShare.Read,
             bufferSize: 1024 * 1024,
-            options: FileOptions.SequentialScan
+            options: FileOptions.SequentialScan | FileOptions.Asynchronous
         );
 
-        using var sha = SHA256.Create();
-
-        return await sha.ComputeHashAsync(stream, cancellationToken);
+        return await SHA256.HashDataAsync(stream, cancellationToken);
     }
 }

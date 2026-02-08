@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace CloudZBackup.Domain.ValueObjects;
 
@@ -34,7 +35,7 @@ public readonly record struct RelativePath
         if (Path.IsPathRooted(value))
             throw new ArgumentException("RelativePath cannot be rooted.", nameof(value));
 
-        if (normalized.Split('/', StringSplitOptions.RemoveEmptyEntries).Any(s => s == ".."))
+        if (ContainsTraversalSegment(normalized))
             throw new ArgumentException(
                 "RelativePath cannot contain '..' segments.",
                 nameof(value)
@@ -55,18 +56,44 @@ public readonly record struct RelativePath
 
     /// <summary>
     /// Converts this relative path to the current platform's directory-separator convention.
+    /// On Unix-like systems (where the separator is already <c>/</c>) the value is returned as-is.
     /// </summary>
     /// <returns>The path string with platform-native separators.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public string ToSystemPath()
     {
-        return string.IsNullOrEmpty(Value)
-            ? string.Empty
-            : Value.Replace('/', Path.DirectorySeparatorChar);
+        if (string.IsNullOrEmpty(Value) || Path.DirectorySeparatorChar == '/')
+            return Value ?? string.Empty;
+
+        return Value.Replace('/', Path.DirectorySeparatorChar);
     }
 
     /// <inheritdoc />
     public override string ToString()
     {
         return Value;
+    }
+
+    /// <summary>
+    /// Checks whether the normalized path contains any <c>..</c> traversal segments
+    /// by scanning character spans without allocating intermediate arrays.
+    /// </summary>
+    private static bool ContainsTraversalSegment(ReadOnlySpan<char> path)
+    {
+        while (!path.IsEmpty)
+        {
+            int sep = path.IndexOf('/');
+            ReadOnlySpan<char> segment = sep < 0 ? path : path[..sep];
+
+            if (segment is "..")
+                return true;
+
+            if (sep < 0)
+                break;
+
+            path = path[(sep + 1)..];
+        }
+
+        return false;
     }
 }

@@ -3,12 +3,15 @@ using CloudZBackup.Application.ValueObjects;
 using CloudZBackup.Domain.ValueObjects;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 
 namespace CloudZBackup.Application.Services;
 
 /// <summary>
 /// Identifies which files among a set of common (source ∩ destination) files have changed
-/// by comparing file sizes and SHA-256 hashes.
+/// by comparing file sizes, timestamps, and SHA-256 hashes.
+/// Files that match in both size and last-write time are assumed unchanged,
+/// avoiding expensive hash computation.
 /// </summary>
 public sealed class OverwriteDetectionService(
     IHashingService hashCalculator,
@@ -26,7 +29,7 @@ public sealed class OverwriteDetectionService(
         CancellationToken ct
     )
     {
-        var bag = new ConcurrentBag<RelativePath>();
+        var bag = new ConcurrentQueue<RelativePath>();
 
         var hashOptions = new ParallelOptions
         {
@@ -39,26 +42,29 @@ public sealed class OverwriteDetectionService(
             hashOptions,
             async (relPath, token) =>
             {
-                string srcFull = fileSystemService.Combine(sourceRoot, relPath);
-                string dstFull = fileSystemService.Combine(destRoot, relPath);
-
                 FileEntry srcMeta = sourceFiles[relPath];
                 FileEntry dstMeta = destFiles[relPath];
 
                 if (srcMeta.Length != dstMeta.Length)
                 {
-                    bag.Add(relPath);
+                    bag.Enqueue(relPath);
                     return;
                 }
+
+                if (srcMeta.LastWriteTimeUtc == dstMeta.LastWriteTimeUtc)
+                    return;
+
+                string srcFull = fileSystemService.Combine(sourceRoot, relPath);
+                string dstFull = fileSystemService.Combine(destRoot, relPath);
 
                 byte[] srcHash = await hashCalculator.ComputeSha256Async(srcFull, token);
                 byte[] dstHash = await hashCalculator.ComputeSha256Async(dstFull, token);
 
-                if (!srcHash.SequenceEqual(dstHash))
-                    bag.Add(relPath);
+                if (!CryptographicOperations.FixedTimeEquals(srcHash, dstHash))
+                    bag.Enqueue(relPath);
             }
         );
 
-        return bag.ToList();
+        return [.. bag];
     }
 }

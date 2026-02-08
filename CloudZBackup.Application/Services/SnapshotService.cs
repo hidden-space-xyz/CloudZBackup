@@ -20,17 +20,25 @@ public sealed class SnapshotService(IFileSystemService fileSystem) : ISnapshotSe
         Dictionary<RelativePath, FileEntry> files = new(_relativePathComparer);
         HashSet<RelativePath> dirs = new(_relativePathComparer);
 
+        int cancellationCheckCounter = 0;
+
         foreach (string dir in fileSystem.EnumerateDirectoriesRecursive(rootPath))
         {
-            ct.ThrowIfCancellationRequested();
+            if ((++cancellationCheckCounter & 0xFF) == 0)
+                ct.ThrowIfCancellationRequested();
+
             RelativePath rel = RelativePath.FromSystem(Path.GetRelativePath(rootPath, dir));
             if (!string.IsNullOrEmpty(rel.Value))
                 dirs.Add(rel);
         }
 
+        cancellationCheckCounter = 0;
+
         foreach (string file in fileSystem.EnumerateFilesRecursive(rootPath))
         {
-            ct.ThrowIfCancellationRequested();
+            if ((++cancellationCheckCounter & 0xFF) == 0)
+                ct.ThrowIfCancellationRequested();
+
             RelativePath rel = RelativePath.FromSystem(Path.GetRelativePath(rootPath, file));
 
             if (includeFileMetadata)
